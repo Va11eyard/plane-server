@@ -12,9 +12,10 @@ export default {
     home: "Главная",
     your_work: "Ваша работа",
     inbox: "Входящие",
-    workspace: "Рабочие пространства",
+    workspace: "Рабочее пространство",
     views: "Представления",
     analytics: "Аналитика",
+    reports: "Отчёты",
     work_items: "Рабочие элементы",
     cycles: "Циклы",
     modules: "Модули",
@@ -23,6 +24,23 @@ export default {
     favorites: "Избранное",
     pro: "Pro",
     upgrade: "Обновить",
+    more: "Ещё",
+    hide: "Скрыть",
+    stickies: "Стикеры",
+  },
+  search_commands_placeholder: "Поиск команд...",
+  workspace_invitations: {
+    already_member: "Вы уже участник {workspaceName}",
+    already_member_description:
+      "В рабочем пространстве вы создаёте проекты, работаете над задачами и организуете работу в Plane.",
+    continue_to_home: "На главную",
+    invitation_expired: "Ссылка на приглашение больше не активна.",
+    invitation_expired_description:
+      "В рабочем пространстве вы создаёте проекты, работаете над задачами и организуете работу в Plane.",
+    start_from_empty: "Начать с пустого проекта",
+    sign_in_to_continue: "Войти для продолжения",
+    star_on_github: "Оцените нас на GitHub",
+    join_community: "Присоединяйтесь к сообществу",
   },
   auth: {
     common: {
@@ -310,6 +328,7 @@ export default {
   views: "Представления",
   workspace: "Рабочее пространство",
   archives: "Архивы",
+  reports: "Отчёты",
   settings: "Настройки",
   failed_to_move_favorite: "Ошибка перемещения избранного",
   favorites: "Избранное",

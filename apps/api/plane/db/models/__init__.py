@@ -82,6 +82,7 @@ from .favorite import UserFavorite
 from .issue_type import IssueType
 
 from .recent_visit import UserRecentVisit
+from .report import ActivityReport
 
 from .label import Label
 

@@ -3,13 +3,14 @@
 # See the LICENSE file for details.
 
 # Python import
+import logging
 import os
 from typing import List, Dict, Tuple
 
 # Third party import
+from django.conf import settings
 from openai import OpenAI
 import requests
-
 from rest_framework import status
 from rest_framework.response import Response
 
@@ -21,6 +22,8 @@ from plane.license.utils.instance_value import get_configuration_value
 from plane.utils.exception_logger import log_exception
 
 from ..base import BaseAPIView
+
+logger = logging.getLogger("plane.external")
 
 
 class LLMProvider:
@@ -66,10 +69,17 @@ class GeminiProvider(LLMProvider):
     default_model = "gemini-pro"
 
 
+class DeepSeekProvider(LLMProvider):
+    name = "DeepSeek"
+    models = ["deepseek-chat", "deepseek-reasoner"]
+    default_model = "deepseek-chat"
+
+
 SUPPORTED_PROVIDERS = {
     "openai": OpenAIProvider,
     "anthropic": AnthropicProvider,
     "gemini": GeminiProvider,
+    "deepseek": DeepSeekProvider,
 }
 
 
@@ -95,7 +105,16 @@ def get_llm_config() -> Tuple[str | None, str | None, str | None]:
         ]
     )
 
-    provider = SUPPORTED_PROVIDERS.get(provider_key.lower())
+    # Логируем источник конфига и что получили (без ключа)
+    logger.info(
+        "LLM config: SKIP_ENV_VAR=%s, provider=%s, model=%s, api_key_set=%s",
+        getattr(settings, "SKIP_ENV_VAR", "?"),
+        provider_key,
+        model,
+        bool(api_key),
+    )
+
+    provider = SUPPORTED_PROVIDERS.get((provider_key or "").lower())
     if not provider:
         log_exception(ValueError(f"Unsupported provider: {provider_key}"))
         return None, None, None
@@ -128,7 +147,10 @@ def get_llm_response(task, prompt, api_key: str, model: str, provider: str) -> T
         if provider.lower() == "gemini":
             model = f"gemini/{model}"
 
-        client = OpenAI(api_key=api_key)
+        if provider.lower() == "deepseek":
+            client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
+        else:
+            client = OpenAI(api_key=api_key)
         chat_completion = client.chat.completions.create(
             model=model, messages=[{"role": "user", "content": final_text}]
         )
@@ -173,7 +195,7 @@ class GPTIntegrationEndpoint(BaseAPIView):
         return Response(
             {
                 "response": text,
-                "response_html": text.replace("\n", "<br/>"),
+                "response_html": (text or "").replace("\n", "<br/>"),
                 "project_detail": ProjectLiteSerializer(project).data,
                 "workspace_detail": WorkspaceLiteSerializer(workspace).data,
             },
@@ -206,7 +228,7 @@ class WorkspaceGPTIntegrationEndpoint(BaseAPIView):
         return Response(
             {
                 "response": text,
-                "response_html": text.replace("\n", "<br/>"),
+                "response_html": (text or "").replace("\n", "<br/>"),
             },
             status=status.HTTP_200_OK,
         )

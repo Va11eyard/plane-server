@@ -81,9 +81,10 @@ class Adapter:
         return email
 
     def validate_password(self, email):
-        """Validate password strength"""
+        """Validate password strength (zxcvbn score 0-4). Min score configurable via PASSWORD_STRENGTH_MIN_SCORE (default 3). Use 0 for local dev."""
+        min_score = int(os.environ.get("PASSWORD_STRENGTH_MIN_SCORE", "3"))
         results = zxcvbn(self.code)
-        if results["score"] < 3:
+        if results["score"] < min_score:
             raise AuthenticationException(
                 error_code=AUTHENTICATION_ERROR_CODES["INVALID_PASSWORD"],
                 error_message="INVALID_PASSWORD",

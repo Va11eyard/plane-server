@@ -12,8 +12,11 @@ export const coreRoutes: RouteConfigEntry[] = [
   // USER MANAGEMENT ROUTES
   // ========================================================================
 
-  // Home - Sign In
+  // Home - Sign In (same as /sign-in)
   layout("./(home)/layout.tsx", [index("./(home)/page.tsx")]),
+
+  // Sign In (dedicated login page)
+  layout("./(all)/sign-in/layout.tsx", [route("sign-in", "./(all)/sign-in/page.tsx")]),
 
   // Sign Up
   layout("./(all)/sign-up/layout.tsx", [route("sign-up", "./(all)/sign-up/page.tsx")]),
@@ -112,6 +115,13 @@ export const coreRoutes: RouteConfigEntry[] = [
             ":workspaceSlug/workspace-views/:globalViewId",
             "./(all)/[workspaceSlug]/(projects)/workspace-views/[globalViewId]/page.tsx"
           ),
+        ]),
+
+        // Reports (global Agile reports)
+        layout("./(all)/[workspaceSlug]/(projects)/reports/layout.tsx", [
+          route(":workspaceSlug/reports", "./(all)/[workspaceSlug]/(projects)/reports/page.tsx"),
+          route(":workspaceSlug/reports/new", "./(all)/[workspaceSlug]/(projects)/reports/new/page.tsx"),
+          route(":workspaceSlug/reports/:reportId", "./(all)/[workspaceSlug]/(projects)/reports/[reportId]/page.tsx"),
         ]),
 
         // Archived Projects
@@ -214,6 +224,21 @@ export const coreRoutes: RouteConfigEntry[] = [
             route(
               ":workspaceSlug/projects/:projectId/intake",
               "./(all)/[workspaceSlug]/(projects)/projects/(detail)/[projectId]/intake/page.tsx"
+            ),
+          ]),
+          // Project reports (Agile reports per project)
+          layout("./(all)/[workspaceSlug]/(projects)/projects/(detail)/[projectId]/reports/layout.tsx", [
+            route(
+              ":workspaceSlug/projects/:projectId/reports",
+              "./(all)/[workspaceSlug]/(projects)/projects/(detail)/[projectId]/reports/page.tsx"
+            ),
+            route(
+              ":workspaceSlug/projects/:projectId/reports/new",
+              "./(all)/[workspaceSlug]/(projects)/projects/(detail)/[projectId]/reports/new/page.tsx"
+            ),
+            route(
+              ":workspaceSlug/projects/:projectId/reports/:reportId",
+              "./(all)/[workspaceSlug]/(projects)/projects/(detail)/[projectId]/reports/[reportId]/page.tsx"
             ),
           ]),
         ]),
@@ -389,8 +414,11 @@ export const coreRoutes: RouteConfigEntry[] = [
   // Sign-up redirects
   route("accounts/sign-up", "routes/redirects/core/accounts-signup.tsx"),
 
-  // Sign-in redirects (all redirect to home page)
-  route("sign-in", "routes/redirects/core/sign-in.tsx"),
+  // God-mode: keep user on same port (redirect to home; admin runs on 3001)
+  route("god-mode", "routes/redirects/core/god-mode.tsx"),
+  route("god-mode/*", "routes/redirects/core/god-mode.tsx"),
+
+  // signin, login → redirect to /sign-in (dedicated login page)
   route("signin", "routes/redirects/core/signin.tsx"),
   route("login", "routes/redirects/core/login.tsx"),
 

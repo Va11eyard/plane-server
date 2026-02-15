@@ -33,6 +33,23 @@ export default defineConfig(() => ({
   },
   server: {
     host: "127.0.0.1",
+    proxy: {
+      // Same-origin API so session cookies work (no cross-origin)
+      "/api": {
+        target: "http://localhost:8000",
+        changeOrigin: true,
+        configure: (proxy) => {
+          proxy.on("error", () => {}); // не логировать socket hang up, когда API не запущен
+        },
+      },
+      "/auth": {
+        target: "http://localhost:8000",
+        changeOrigin: true,
+        configure: (proxy) => {
+          proxy.on("error", () => {});
+        },
+      },
+    },
   },
   // No SSR-specific overrides needed; alias resolves to ESM build
 }));

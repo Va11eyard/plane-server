@@ -6,6 +6,7 @@
 
 # Python imports
 import os
+from pathlib import Path
 from urllib.parse import urlparse
 from urllib.parse import urljoin
 
@@ -22,6 +23,21 @@ from plane.utils.url import is_valid_url
 
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# Load .env from repo root so SKIP_ENV_VAR, LLM_*, etc. are available when not using Docker
+_env_path = Path(BASE_DIR).resolve() / ".." / ".." / ".." / ".env"
+if _env_path.exists():
+    with open(_env_path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" in line:
+                key, _, value = line.partition("=")
+                key = key.strip()
+                value = value.strip().strip('"').strip("'")
+                if key and key not in os.environ:
+                    os.environ[key] = value
 
 # Secret Key
 SECRET_KEY = os.environ.get("SECRET_KEY", get_random_secret_key())
@@ -311,7 +327,9 @@ SKIP_ENV_VAR = os.environ.get("SKIP_ENV_VAR", "1") == "1"
 DATA_UPLOAD_MAX_MEMORY_SIZE = int(os.environ.get("FILE_SIZE_LIMIT", 5242880))
 
 # Cookie Settings
-SESSION_COOKIE_SECURE = secure_origins
+# SameSite=None + Secure so cookies are sent on cross-origin requests (e.g. frontend :3000 -> API :8000)
+SESSION_COOKIE_SAMESITE = os.environ.get("SESSION_COOKIE_SAMESITE", "None")
+SESSION_COOKIE_SECURE = True  # required when SameSite=None; Chrome treats localhost as secure
 SESSION_COOKIE_HTTPONLY = True
 SESSION_ENGINE = "plane.db.models.session"
 SESSION_COOKIE_AGE = int(os.environ.get("SESSION_COOKIE_AGE", 604800))
@@ -323,8 +341,9 @@ SESSION_SAVE_EVERY_REQUEST = os.environ.get("SESSION_SAVE_EVERY_REQUEST", "0") =
 ADMIN_SESSION_COOKIE_NAME = "admin-session-id"
 ADMIN_SESSION_COOKIE_AGE = int(os.environ.get("ADMIN_SESSION_COOKIE_AGE", 3600))
 
-# CSRF cookies
-CSRF_COOKIE_SECURE = secure_origins
+# CSRF cookies (same as session for cross-origin login to work)
+CSRF_COOKIE_SAMESITE = os.environ.get("CSRF_COOKIE_SAMESITE", "None")
+CSRF_COOKIE_SECURE = True
 CSRF_COOKIE_HTTPONLY = True
 CSRF_TRUSTED_ORIGINS = cors_allowed_origins
 CSRF_COOKIE_DOMAIN = os.environ.get("COOKIE_DOMAIN", None)

@@ -237,7 +237,12 @@ export const useWorkspaceNavigationPreferences = () => {
   );
 
   const getWorkspaceItemState = useCallback(
-    (key: string): TWorkspaceNavigationItemState => preferences.items[key] || { is_pinned: false, sort_order: 0 },
+    (key: string): TWorkspaceNavigationItemState => {
+      const stored = preferences.items[key];
+      if (stored) return stored;
+      const defaultPinned = ["views", "reports", "analytics", "archives"].includes(key);
+      return { is_pinned: defaultPinned, sort_order: 0 };
+    },
     [preferences]
   );
 

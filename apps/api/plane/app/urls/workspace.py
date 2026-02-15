@@ -5,6 +5,7 @@
 from django.urls import path
 
 
+from plane.app.views.report import WorkspaceReportsEndpoint, WorkspaceReportDetailEndpoint
 from plane.app.views import (
     UserWorkspaceInvitationsViewSet,
     WorkSpaceViewSet,
@@ -256,5 +257,16 @@ urlpatterns = [
         "workspaces/<str:slug>/sidebar-preferences/",
         WorkspaceUserPreferenceViewSet.as_view(),
         name="workspace-user-preference",
+    ),
+    # Agile Reports
+    path(
+        "workspaces/<str:slug>/reports/",
+        WorkspaceReportsEndpoint.as_view(),
+        name="workspace-reports",
+    ),
+    path(
+        "workspaces/<str:slug>/reports/<uuid:pk>/",
+        WorkspaceReportDetailEndpoint.as_view(),
+        name="workspace-report-detail",
     ),
 ]

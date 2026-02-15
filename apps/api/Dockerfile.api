@@ -20,23 +20,24 @@ RUN apk add --no-cache --upgrade \
 
 COPY requirements.txt ./
 COPY requirements ./requirements
-RUN apk add --no-cache libffi-dev
-RUN apk add --no-cache --virtual .build-deps \
-    "bash~=5.2" \
-    "g++" \
-    "gcc" \
-    "cargo" \
-    "git" \
-    "make" \
-    "postgresql-dev" \
-    "libc-dev" \
-    "linux-headers" \
-    && \
-    pip install -r requirements.txt --compile --no-cache-dir \
-    && \
-    apk del .build-deps \
-    && \
-    rm -rf /var/cache/apk/*
+# Single apk add with retry (IO ERROR on linux-headers can be transient on Docker Desktop/WSL2)
+RUN for i in 1 2 3; do \
+    apk add --no-cache --virtual .build-deps \
+        "bash~=5.2" \
+        "g++" \
+        "gcc" \
+        "cargo" \
+        "git" \
+        "make" \
+        "postgresql-dev" \
+        "libc-dev" \
+        "libffi-dev" \
+        "linux-headers" \
+    && break || { echo "Retry $i/3..."; sleep 20; }; \
+    done \
+    && pip install -r requirements.txt --compile --no-cache-dir \
+    && apk del .build-deps \
+    && rm -rf /var/cache/apk/*
 
 
 # Add in Django deps and generate Django's static files

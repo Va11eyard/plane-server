@@ -49,17 +49,9 @@ export class TranslationStore {
     this.loadTranslations();
   }
 
-  /** Initializes the language based on the local storage or browser language */
+  /** Initializes the language: always use FALLBACK_LANGUAGE (Russian) for consistent UI */
   private initializeLanguage() {
     if (typeof window === "undefined") return;
-
-    const savedLocale = localStorage.getItem(LANGUAGE_STORAGE_KEY) as TLanguage;
-    if (this.isValidLanguage(savedLocale)) {
-      this.setLanguage(savedLocale);
-      return;
-    }
-
-    // Fallback to default language
     this.setLanguage(FALLBACK_LANGUAGE);
   }
 

@@ -3,13 +3,23 @@
 # See the LICENSE file for details.
 
 # Django imports
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.http import HttpResponseRedirect
+from django.utils.decorators import method_decorator
 from django.views import View
+from django.views.decorators.csrf import csrf_exempt
 
 # Module imports
 from plane.authentication.provider.credentials.email import EmailProvider
+
+
+def _conditional_csrf_exempt(view_class):
+    """Exempt auth views from CSRF in DEBUG so form POST works with proxy/same-origin."""
+    if getattr(settings, "DEBUG", False):
+        return method_decorator(csrf_exempt, name="dispatch")(view_class)
+    return view_class
 from plane.authentication.utils.login import user_login
 from plane.license.models import Instance
 from plane.authentication.utils.host import base_host
@@ -23,6 +33,7 @@ from plane.authentication.adapter.error import (
 from plane.utils.path_validator import get_safe_redirect_url
 
 
+@_conditional_csrf_exempt
 class SignInAuthEndpoint(View):
     def post(self, request):
         next_path = request.POST.get("next_path")
@@ -132,6 +143,7 @@ class SignInAuthEndpoint(View):
             return HttpResponseRedirect(url)
 
 
+@_conditional_csrf_exempt
 class SignUpAuthEndpoint(View):
     def post(self, request):
         next_path = request.POST.get("next_path")

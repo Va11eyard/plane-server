@@ -7,7 +7,7 @@
 import { redirect } from "react-router";
 
 export const clientLoader = () => {
-  throw redirect("/");
+  throw redirect("/sign-in");
 };
 
 export default function Signin() {

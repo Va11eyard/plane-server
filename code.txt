@@ -1,0 +1,8 @@
+# Найти процесс на порту 3000
+Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess
+
+# Завершить (подставьте PID из предыдущей команды)
+Stop-Process -Id <PID> -Force
+
+Или одной командой:
+Stop-Process -Id (Get-NetTCPConnection -LocalPort 3000).OwningProcess -Force

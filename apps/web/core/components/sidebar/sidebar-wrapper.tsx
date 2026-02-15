@@ -22,12 +22,13 @@ import { IconButton } from "@plane/propel/icon-button";
 
 type TSidebarWrapperProps = {
   title: string;
+  titleKey?: string;
   children: React.ReactNode;
   quickActions?: React.ReactNode;
 };
 
 export const SidebarWrapper = observer(function SidebarWrapper(props: TSidebarWrapperProps) {
-  const { title, children, quickActions } = props;
+  const { title, titleKey, children, quickActions } = props;
   // state
   const [isCustomizeNavDialogOpen, setIsCustomizeNavDialogOpen] = useState(false);
   // store hooks
@@ -57,7 +58,7 @@ export const SidebarWrapper = observer(function SidebarWrapper(props: TSidebarWr
           <div className="flex items-center justify-between gap-2 px-2">
             <span className="text-16 text-primary font-medium pt-1">{title}</span>
             <div className="flex items-center gap-2">
-              {title === "Projects" && (
+              {(titleKey === "projects" || title === "Projects") && (
                 <IconButton
                   size="base"
                   variant="ghost"

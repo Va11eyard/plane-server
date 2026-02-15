@@ -167,7 +167,7 @@ export const SidebarMenuItems = observer(function SidebarMenuItems() {
                     )}
                   >
                     <Ellipsis className="flex-shrink-0 size-4" />
-                    <span>{isExtendedSidebarOpened ? "Hide" : "More"}</span>
+                    <span>{isExtendedSidebarOpened ? t("sidebar.hide") : t("sidebar.more")}</span>
                   </button>
                 </SidebarNavItem>
               </>

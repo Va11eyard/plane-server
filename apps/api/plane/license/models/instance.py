@@ -43,6 +43,12 @@ class Instance(BaseModel):
     # field for validating if the current version is deprecated
     is_current_version_deprecated = models.BooleanField(default=False)
 
+    @property
+    def primary_owner(self):
+        """First instance admin's user, for InstanceSerializer.primary_owner_details."""
+        admin = self.admins.first()
+        return admin.user if admin else None
+
     class Meta:
         verbose_name = "Instance"
         verbose_name_plural = "Instances"

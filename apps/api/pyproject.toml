@@ -94,3 +94,9 @@ convention = "google"
 [tool.ruff.lint.pylint]
 max-args = 8
 max-statements = 50
+
+# Basedpyright: зависимости (rest_framework и др.) ставятся в venv API или в Docker
+[tool.basedpyright]
+reportMissingImports = "none"
+[tool.pyright]
+reportMissingImports = "none"
