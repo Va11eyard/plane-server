@@ -109,8 +109,11 @@ class ProjectViewSet(BaseViewSet):
             role=ROLE.GUEST.value,
         ).exists():
             projects = projects.filter(
-                project_projectmember__member=self.request.user,
-                project_projectmember__is_active=True,
+                Q(
+                    project_projectmember__member=self.request.user,
+                    project_projectmember__is_active=True,
+                )
+                | Q(network=2)
             )
 
         if WorkspaceMember.objects.filter(
@@ -190,8 +193,11 @@ class ProjectViewSet(BaseViewSet):
             role=ROLE.GUEST.value,
         ).exists():
             projects = projects.filter(
-                project_projectmember__member=self.request.user,
-                project_projectmember__is_active=True,
+                Q(
+                    project_projectmember__member=self.request.user,
+                    project_projectmember__is_active=True,
+                )
+                | Q(network=2)
             )
 
         if WorkspaceMember.objects.filter(
@@ -224,11 +230,7 @@ class ProjectViewSet(BaseViewSet):
                     {"error": "You do not have permission"},
                     status=status.HTTP_403_FORBIDDEN,
                 )
-            else:
-                return Response(
-                    {"error": "You are not a member of this project"},
-                    status=status.HTTP_409_CONFLICT,
-                )
+            # Public projects: allow view for all workspace members
 
         recent_visited_task.delay(
             slug=slug,

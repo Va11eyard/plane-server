@@ -3,6 +3,7 @@
 # See the LICENSE file for details.
 
 # Python imports
+import os
 from urllib.parse import urlencode, urljoin
 import uuid
 from zxcvbn import zxcvbn
@@ -188,8 +189,9 @@ class InstanceAdminSignUpEndpoint(View):
             )
             return HttpResponseRedirect(url)
         else:
+            min_score = int(os.environ.get("PASSWORD_STRENGTH_MIN_SCORE", "0"))
             results = zxcvbn(password)
-            if results["score"] < 3:
+            if results["score"] < min_score:
                 exc = AuthenticationException(
                     error_code=AUTHENTICATION_ERROR_CODES["INVALID_ADMIN_PASSWORD"],
                     error_message="INVALID_ADMIN_PASSWORD",

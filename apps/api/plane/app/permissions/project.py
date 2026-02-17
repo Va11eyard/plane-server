@@ -6,8 +6,8 @@
 from rest_framework.permissions import SAFE_METHODS, BasePermission
 
 # Module import
-from plane.db.models import ProjectMember, WorkspaceMember
-from plane.db.models.project import ROLE
+from plane.db.models import ProjectMember, WorkspaceMember, Project
+from plane.db.models.project import ROLE, ProjectNetwork
 
 
 class ProjectBasePermission(BasePermission):
@@ -90,27 +90,54 @@ class ProjectEntityPermission(BasePermission):
         # Handle requests based on project__identifier
         if hasattr(view, "project_identifier") and view.project_identifier:
             if request.method in SAFE_METHODS:
-                return ProjectMember.objects.filter(
+                if ProjectMember.objects.filter(
                     workspace__slug=view.workspace_slug,
                     member=request.user,
                     project__identifier=view.project_identifier,
                     is_active=True,
-                ).exists()
+                ).exists():
+                    return True
+                return (
+                    WorkspaceMember.objects.filter(
+                        workspace__slug=view.workspace_slug,
+                        member=request.user,
+                        is_active=True,
+                    ).exists()
+                    and Project.objects.filter(
+                        workspace__slug=view.workspace_slug,
+                        identifier=view.project_identifier,
+                        network=ProjectNetwork.PUBLIC.value,
+                    ).exists()
+                )
 
-        ## Safe Methods -> Handle the filtering logic in queryset
+        ## Safe Methods -> project member OR (workspace member + public project)
         if request.method in SAFE_METHODS:
-            return ProjectMember.objects.filter(
+            if ProjectMember.objects.filter(
                 workspace__slug=view.workspace_slug,
                 member=request.user,
                 project_id=view.project_id,
                 is_active=True,
-            ).exists()
+            ).exists():
+                return True
+            # Workspace members can read public projects
+            return (
+                WorkspaceMember.objects.filter(
+                    workspace__slug=view.workspace_slug,
+                    member=request.user,
+                    is_active=True,
+                ).exists()
+                and Project.objects.filter(
+                    pk=view.project_id,
+                    workspace__slug=view.workspace_slug,
+                    network=ProjectNetwork.PUBLIC.value,
+                ).exists()
+            )
 
-        ## Only project members or admins can create and edit the project attributes
+        ## Project members, admins, or guests can create and edit (e.g. issues)
         return ProjectMember.objects.filter(
             workspace__slug=view.workspace_slug,
             member=request.user,
-            role__in=[ROLE.ADMIN.value, ROLE.MEMBER.value],
+            role__in=[ROLE.ADMIN.value, ROLE.MEMBER.value, ROLE.GUEST.value],
             project_id=view.project_id,
             is_active=True,
         ).exists()
