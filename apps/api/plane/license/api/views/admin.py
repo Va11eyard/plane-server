@@ -189,21 +189,22 @@ class InstanceAdminSignUpEndpoint(View):
             return HttpResponseRedirect(url)
         else:
             min_score = int(os.environ.get("PASSWORD_STRENGTH_MIN_SCORE", "0"))
-            results = zxcvbn(password)
-            if results["score"] < min_score:
-                exc = AuthenticationException(
-                    error_code=AUTHENTICATION_ERROR_CODES["INVALID_ADMIN_PASSWORD"],
-                    error_message="INVALID_ADMIN_PASSWORD",
-                    payload={
-                        "email": email,
-                        "first_name": first_name,
-                        "last_name": last_name,
-                        "company_name": company_name,
-                        "is_telemetry_enabled": is_telemetry_enabled,
-                    },
-                )
-                url = _admin_redirect_url(request, query=urlencode(exc.get_error_dict()))
-                return HttpResponseRedirect(url)
+            if min_score > 0:
+                results = zxcvbn(password)
+                if results["score"] < min_score:
+                    exc = AuthenticationException(
+                        error_code=AUTHENTICATION_ERROR_CODES["INVALID_ADMIN_PASSWORD"],
+                        error_message="INVALID_ADMIN_PASSWORD",
+                        payload={
+                            "email": email,
+                            "first_name": first_name,
+                            "last_name": last_name,
+                            "company_name": company_name,
+                            "is_telemetry_enabled": is_telemetry_enabled,
+                        },
+                    )
+                    url = _admin_redirect_url(request, query=urlencode(exc.get_error_dict()))
+                    return HttpResponseRedirect(url)
 
             user = User.objects.create(
                 first_name=first_name,
