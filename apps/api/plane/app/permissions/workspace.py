@@ -7,6 +7,7 @@ from rest_framework.permissions import BasePermission, SAFE_METHODS
 
 # Module imports
 from plane.db.models import WorkspaceMember
+from plane.license.models import InstanceAdmin
 
 
 # Permission Mappings
@@ -16,6 +17,10 @@ Guest = 5
 
 
 # TODO: Move the below logic to python match - python v3.10
+def _is_instance_admin(user):
+    return user and InstanceAdmin.objects.filter(user=user).exists()
+
+
 class WorkSpaceBasePermission(BasePermission):
     def has_permission(self, request, view):
         # allow anyone to create a workspace
@@ -27,6 +32,9 @@ class WorkSpaceBasePermission(BasePermission):
 
         ## Safe Methods
         if request.method in SAFE_METHODS:
+            return True
+
+        if _is_instance_admin(request.user):
             return True
 
         # allow only admins and owners to update the workspace settings
@@ -53,6 +61,9 @@ class WorkspaceOwnerPermission(BasePermission):
         if request.user.is_anonymous:
             return False
 
+        if _is_instance_admin(request.user):
+            return True
+
         return WorkspaceMember.objects.filter(
             workspace__slug=view.workspace_slug, member=request.user, role=Admin
         ).exists()
@@ -62,6 +73,9 @@ class WorkSpaceAdminPermission(BasePermission):
     def has_permission(self, request, view):
         if request.user.is_anonymous:
             return False
+
+        if _is_instance_admin(request.user):
+            return True
 
         return WorkspaceMember.objects.filter(
             member=request.user,
@@ -75,6 +89,9 @@ class WorkspaceEntityPermission(BasePermission):
     def has_permission(self, request, view):
         if request.user.is_anonymous:
             return False
+
+        if _is_instance_admin(request.user):
+            return True
 
         ## Safe Methods -> Handle the filtering logic in queryset
         if request.method in SAFE_METHODS:
@@ -95,6 +112,9 @@ class WorkspaceViewerPermission(BasePermission):
         if request.user.is_anonymous:
             return False
 
+        if _is_instance_admin(request.user):
+            return True
+
         return WorkspaceMember.objects.filter(
             member=request.user, workspace__slug=view.workspace_slug, is_active=True
         ).exists()
@@ -104,6 +124,9 @@ class WorkspaceUserPermission(BasePermission):
     def has_permission(self, request, view):
         if request.user.is_anonymous:
             return False
+
+        if _is_instance_admin(request.user):
+            return True
 
         return WorkspaceMember.objects.filter(
             member=request.user, workspace__slug=view.workspace_slug, is_active=True

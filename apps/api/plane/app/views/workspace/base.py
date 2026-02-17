@@ -11,7 +11,7 @@ import uuid
 
 from dateutil.relativedelta import relativedelta
 from django.db import IntegrityError
-from django.db.models import Count, F, Func, OuterRef, Prefetch, Q
+from django.db.models import Case, Coalesce, Count, F, Func, IntegerField, OuterRef, Prefetch, Q, Value, When
 
 from django.db.models.fields import DateField
 from django.db.models.functions import Cast, ExtractDay, ExtractWeek
@@ -44,6 +44,7 @@ from plane.db.models import (
 )
 from plane.app.permissions import ROLE, allow_permission
 from plane.utils.constants import RESTRICTED_WORKSPACE_SLUGS
+from plane.license.models import InstanceAdmin
 from plane.license.utils.instance_value import get_configuration_value
 from plane.bgtasks.workspace_seed_task import workspace_seed
 from plane.bgtasks.event_tracking_task import track_event
@@ -205,6 +206,7 @@ class UserWorkSpacesEndpoint(BaseAPIView):
 
     def get(self, request):
         fields = [field for field in request.GET.get("fields", "").split(",") if field]
+        is_instance_admin = InstanceAdmin.objects.filter(user=request.user).exists()
         member_count = (
             WorkspaceMember.objects.filter(workspace=OuterRef("id"), member__is_bot=False, is_active=True)
             .order_by()
@@ -212,21 +214,30 @@ class UserWorkSpacesEndpoint(BaseAPIView):
             .values("count")
         )
 
-        role = WorkspaceMember.objects.filter(workspace=OuterRef("id"), member=request.user, is_active=True).values(
-            "role"
+        member_role = WorkspaceMember.objects.filter(
+            workspace=OuterRef("id"), member=request.user, is_active=True
+        ).values("role")
+
+        # Instance admin: see all workspaces, role=member_role or 20 (admin) when not a member
+        # Regular user: only workspaces where they're a member
+        base_qs = Workspace.objects.prefetch_related(
+            Prefetch(
+                "workspace_member",
+                queryset=WorkspaceMember.objects.filter(member=request.user, is_active=True),
+            )
+        ).annotate(
+            member_role=member_role,
+            total_members=member_count,
         )
 
-        workspace = (
-            Workspace.objects.prefetch_related(
-                Prefetch(
-                    "workspace_member",
-                    queryset=WorkspaceMember.objects.filter(member=request.user, is_active=True),
-                )
-            )
-            .annotate(role=role, total_members=member_count)
-            .filter(workspace_member__member=request.user, workspace_member__is_active=True)
-            .distinct()
-        )
+        if is_instance_admin:
+            workspace = base_qs.annotate(
+                role=Coalesce(F("member_role"), Value(20), output_field=IntegerField())
+            ).distinct()
+        else:
+            workspace = base_qs.annotate(role=F("member_role")).filter(
+                workspace_member__member=request.user, workspace_member__is_active=True
+            ).distinct()
 
         workspaces = WorkSpaceSerializer(
             self.filter_queryset(workspace),
