@@ -4,8 +4,8 @@
  * See the LICENSE file for details.
  */
 
-import { useState } from "react";
 import { observer } from "mobx-react";
+import useSWR from "swr";
 import Link from "next/link";
 // plane imports
 import { useTranslation } from "@plane/i18n";
@@ -14,11 +14,9 @@ import { PlaneLogo } from "@plane/propel/icons";
 import type { IWorkspace } from "@plane/types";
 // assets
 import WorkspaceCreationDisabled from "@/app/assets/workspace/workspace-creation-disabled.png?url";
-// components
-import { CreateWorkspaceForm } from "@/components/workspace/create-workspace-form";
 // hooks
 import { useUser, useUserProfile } from "@/hooks/store/user";
-import { useInstance } from "@/hooks/store/use-instance";
+import { useWorkspace } from "@/hooks/store/use-workspace";
 import { useAppRouter } from "@/hooks/use-app-router";
 // wrappers
 import { AuthenticationWrapper } from "@/lib/wrappers/authentication-wrapper";
@@ -28,17 +26,15 @@ const CreateWorkspacePage = observer(function CreateWorkspacePage() {
   // router
   const router = useAppRouter();
   // store hooks
-  const { config } = useInstance();
   const { data: currentUser } = useUser();
   const { updateUserProfile } = useUserProfile();
-  // states
-  const [defaultValues, setDefaultValues] = useState<Pick<IWorkspace, "name" | "slug" | "organization_size">>({
-    name: "",
-    slug: "",
-    organization_size: "",
-  });
+  const { workspaces, fetchWorkspaces } = useWorkspace();
   // derived values
-  const isWorkspaceCreationDisabled = config?.is_workspace_creation_disabled ?? false;
+  const workspaceList = workspaces ? Object.values(workspaces) : [];
+  const hasWorkspaces = workspaceList.length > 0;
+
+  // fetch workspaces on mount
+  useSWR("CREATE_WORKSPACE_WORKSPACES", () => fetchWorkspaces(), { revalidateOnFocus: true });
 
   // methods
   const getMailtoHref = () => {
@@ -52,7 +48,7 @@ const CreateWorkspacePage = observer(function CreateWorkspacePage() {
     return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   };
 
-  const onSubmit = async (workspace: IWorkspace) => {
+  const handleSelectWorkspace = async (workspace: IWorkspace) => {
     await updateUserProfile({ last_workspace_id: workspace.id }).then(() => router.push(`/${workspace.slug}`));
   };
 
@@ -72,7 +68,34 @@ const CreateWorkspacePage = observer(function CreateWorkspacePage() {
           </div>
         </div>
         <div className="relative flex h-full justify-center px-8 pb-8 sm:w-10/12 sm:items-center sm:justify-start sm:p-0 sm:pr-[8.33%] md:w-9/12 lg:w-4/5">
-          {isWorkspaceCreationDisabled ? (
+          {hasWorkspaces ? (
+            <div className="w-full space-y-7 sm:space-y-10">
+              <h4 className="text-20 font-semibold">Select your workspace</h4>
+              <p className="text-13 text-tertiary">Choose a workspace to continue</p>
+              <div className="flex flex-col gap-2 sm:w-3/4 md:w-2/5">
+                {workspaceList.map((workspace) => (
+                  <button
+                    key={workspace.id}
+                    type="button"
+                    onClick={() => void handleSelectWorkspace(workspace)}
+                    className="flex items-center gap-3 rounded-lg border border-custom-border-200 bg-custom-background-100 px-4 py-3 text-left transition-colors hover:bg-custom-background-80 hover:border-custom-border-300"
+                  >
+                    {workspace.logo_url ? (
+                      <img src={workspace.logo_url} alt="" className="h-10 w-10 rounded object-cover" />
+                    ) : (
+                      <div className="flex h-10 w-10 items-center justify-center rounded bg-custom-background-80 text-14 font-semibold text-custom-text-100">
+                        {workspace.name?.charAt(0)?.toUpperCase() || "W"}
+                      </div>
+                    )}
+                    <div>
+                      <div className="text-14 font-medium">{workspace.name}</div>
+                      <div className="text-12 text-tertiary">{workspace.slug}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
             <div className="w-4/5 h-full flex flex-col items-center justify-center text-16 font-medium gap-1">
               <img
                 src={WorkspaceCreationDisabled}
@@ -92,17 +115,6 @@ const CreateWorkspacePage = observer(function CreateWorkspacePage() {
                 <a href={getMailtoHref()} className={getButtonStyling("secondary", "base")}>
                   {t("workspace_creation.errors.creation_disabled.request_button")}
                 </a>
-              </div>
-            </div>
-          ) : (
-            <div className="w-full space-y-7 sm:space-y-10">
-              <h4 className="text-20 font-semibold">{t("workspace_creation.heading")}</h4>
-              <div className="sm:w-3/4 md:w-2/5">
-                <CreateWorkspaceForm
-                  onSubmit={onSubmit}
-                  defaultValues={defaultValues}
-                  setDefaultValues={setDefaultValues}
-                />
               </div>
             </div>
           )}

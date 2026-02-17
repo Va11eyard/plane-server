@@ -235,9 +235,19 @@ class UserWorkSpacesEndpoint(BaseAPIView):
                 role=Coalesce(F("member_role"), Value(20), output_field=IntegerField())
             ).distinct()
         else:
-            workspace = base_qs.annotate(role=F("member_role")).filter(
-                workspace_member__member=request.user, workspace_member__is_active=True
-            ).distinct()
+            # Regular users: only workspaces where they're a member AND owner is instance admin
+            instance_admin_user_ids = InstanceAdmin.objects.filter(user__isnull=False).values_list(
+                "user_id", flat=True
+            )
+            workspace = (
+                base_qs.annotate(role=F("member_role"))
+                .filter(
+                    workspace_member__member=request.user,
+                    workspace_member__is_active=True,
+                    owner_id__in=instance_admin_user_ids,
+                )
+                .distinct()
+            )
 
         workspaces = WorkSpaceSerializer(
             self.filter_queryset(workspace),
