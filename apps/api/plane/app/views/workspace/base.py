@@ -134,9 +134,9 @@ class WorkSpaceViewSet(BaseViewSet):
                 data["total_members"] = total_members
                 data["role"] = 20
 
-                workspace_seed.delay(serializer.data["id"])
+                workspace_seed.delay(serializer.data["id"])  # pyright: ignore[reportFunctionMemberAccess]
 
-                track_event.delay(
+                track_event.delay(  # pyright: ignore[reportFunctionMemberAccess]
                     user_id=request.user.id,
                     event_name=WORKSPACE_CREATED,
                     slug=data["slug"],
@@ -183,7 +183,7 @@ class WorkSpaceViewSet(BaseViewSet):
         # Get the workspace
         workspace = self.get_object()
         self.remove_last_workspace_ids_from_user_settings(workspace.id)
-        track_event.delay(
+        track_event.delay(  # pyright: ignore[reportFunctionMemberAccess]
             user_id=request.user.id,
             event_name=WORKSPACE_DELETED,
             slug=workspace.slug,
