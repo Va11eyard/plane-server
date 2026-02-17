@@ -63,14 +63,19 @@ def base_host(
         if not admin_base_path.endswith("/"):
             admin_base_path += "/"
 
-        # Always prefer request origin (Referer/Host) so redirect goes where user came from (ngrok, etc.)
+        # 1) Prefer request origin (Referer/Host) when not localhost
         origin = _request_origin(request)
         if origin:
             return origin + admin_base_path
+        # 2) Use configured URL when not localhost
         admin_url = settings.ADMIN_BASE_URL
         if admin_url and not _is_localhost_url(admin_url):
-            return admin_url + admin_base_path
-        return (base_origin or "") + admin_base_path
+            return admin_url.rstrip("/") + admin_base_path
+        # 3) Use base_origin when not localhost
+        if base_origin and not _is_localhost_url(base_origin):
+            return base_origin.rstrip("/") + admin_base_path
+        # 4) Fallback: relative path - browser redirects to same origin (ngrok, etc.)
+        return admin_base_path
 
     # Space redirection
     if is_space:
