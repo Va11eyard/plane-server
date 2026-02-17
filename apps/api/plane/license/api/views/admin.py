@@ -42,6 +42,23 @@ from plane.utils.ip_address import get_client_ip
 from plane.utils.path_validator import get_safe_redirect_url
 
 
+def _admin_redirect_url(request, query: str = "", path: str = "") -> str:
+    """Build admin redirect URL. Use relative path when base would be localhost (fixes ngrok)."""
+    from django.conf import settings
+
+    base = base_host(request=request, is_admin=True)
+    url = urljoin(base, path) if path else (urljoin(base, "?" + query) if query else base)
+    # Never redirect to localhost - use relative path so browser keeps same origin (ngrok)
+    if url and ("localhost" in url.lower() or "127.0.0.1" in url):
+        admin_path = getattr(settings, "ADMIN_BASE_PATH", "/god-mode/")
+        if not admin_path.startswith("/"):
+            admin_path = "/" + admin_path
+        if not admin_path.endswith("/"):
+            admin_path += "/"
+        return admin_path + (path if path else ("?" + query if query else ""))
+    return url
+
+
 class InstanceAdminEndpoint(BaseAPIView):
     permission_classes = [InstanceAdminPermission]
 
@@ -99,10 +116,7 @@ class InstanceAdminSignUpEndpoint(View):
                 error_code=AUTHENTICATION_ERROR_CODES["INSTANCE_NOT_CONFIGURED"],
                 error_message="INSTANCE_NOT_CONFIGURED",
             )
-            url = urljoin(
-                base_host(request=request, is_admin=True),
-                "?" + urlencode(exc.get_error_dict()),
-            )
+            url = _admin_redirect_url(request, query=urlencode(exc.get_error_dict()))
             return HttpResponseRedirect(url)
 
         # check if the instance has already an admin registered
@@ -111,10 +125,7 @@ class InstanceAdminSignUpEndpoint(View):
                 error_code=AUTHENTICATION_ERROR_CODES["ADMIN_ALREADY_EXIST"],
                 error_message="ADMIN_ALREADY_EXIST",
             )
-            url = urljoin(
-                base_host(request=request, is_admin=True),
-                "?" + urlencode(exc.get_error_dict()),
-            )
+            url = _admin_redirect_url(request, query=urlencode(exc.get_error_dict()))
             return HttpResponseRedirect(url)
 
         # Get the email and password from all the user
@@ -138,13 +149,7 @@ class InstanceAdminSignUpEndpoint(View):
                     "is_telemetry_enabled": is_telemetry_enabled,
                 },
             )
-            url = urljoin(
-                base_host(
-                    request=request,
-                    is_admin=True,
-                ),
-                "?" + urlencode(exc.get_error_dict()),
-            )
+            url = _admin_redirect_url(request, query=urlencode(exc.get_error_dict()))
             return HttpResponseRedirect(url)
 
         # Validate the email
@@ -163,10 +168,7 @@ class InstanceAdminSignUpEndpoint(View):
                     "is_telemetry_enabled": is_telemetry_enabled,
                 },
             )
-            url = urljoin(
-                base_host(request=request, is_admin=True),
-                "?" + urlencode(exc.get_error_dict()),
-            )
+            url = _admin_redirect_url(request, query=urlencode(exc.get_error_dict()))
             return HttpResponseRedirect(url)
 
         # Check if already a user exists or not
@@ -183,10 +185,7 @@ class InstanceAdminSignUpEndpoint(View):
                     "is_telemetry_enabled": is_telemetry_enabled,
                 },
             )
-            url = urljoin(
-                base_host(request=request, is_admin=True),
-                "?" + urlencode(exc.get_error_dict()),
-            )
+            url = _admin_redirect_url(request, query=urlencode(exc.get_error_dict()))
             return HttpResponseRedirect(url)
         else:
             min_score = int(os.environ.get("PASSWORD_STRENGTH_MIN_SCORE", "0"))
@@ -203,10 +202,7 @@ class InstanceAdminSignUpEndpoint(View):
                         "is_telemetry_enabled": is_telemetry_enabled,
                     },
                 )
-                url = urljoin(
-                    base_host(request=request, is_admin=True),
-                    "?" + urlencode(exc.get_error_dict()),
-                )
+                url = _admin_redirect_url(request, query=urlencode(exc.get_error_dict()))
                 return HttpResponseRedirect(url)
 
             user = User.objects.create(
@@ -237,7 +233,7 @@ class InstanceAdminSignUpEndpoint(View):
 
             # get tokens for user
             user_login(request=request, user=user, is_admin=True)
-            url = urljoin(base_host(request=request, is_admin=True), "general/")
+            url = _admin_redirect_url(request, path="general/")
             return HttpResponseRedirect(url)
 
 
@@ -253,10 +249,7 @@ class InstanceAdminSignInEndpoint(View):
                 error_code=AUTHENTICATION_ERROR_CODES["INSTANCE_NOT_CONFIGURED"],
                 error_message="INSTANCE_NOT_CONFIGURED",
             )
-            url = urljoin(
-                base_host(request=request, is_admin=True),
-                "?" + urlencode(exc.get_error_dict()),
-            )
+            url = _admin_redirect_url(request, query=urlencode(exc.get_error_dict()))
             return HttpResponseRedirect(url)
 
         # Get email and password
@@ -270,10 +263,7 @@ class InstanceAdminSignInEndpoint(View):
                 error_message="REQUIRED_ADMIN_EMAIL_PASSWORD",
                 payload={"email": email},
             )
-            url = urljoin(
-                base_host(request=request, is_admin=True),
-                "?" + urlencode(exc.get_error_dict()),
-            )
+            url = _admin_redirect_url(request, query=urlencode(exc.get_error_dict()))
             return HttpResponseRedirect(url)
 
         # Validate the email
@@ -286,10 +276,7 @@ class InstanceAdminSignInEndpoint(View):
                 error_message="INVALID_ADMIN_EMAIL",
                 payload={"email": email},
             )
-            url = urljoin(
-                base_host(request=request, is_admin=True),
-                "?" + urlencode(exc.get_error_dict()),
-            )
+            url = _admin_redirect_url(request, query=urlencode(exc.get_error_dict()))
             return HttpResponseRedirect(url)
 
         # Fetch the user
@@ -302,10 +289,7 @@ class InstanceAdminSignInEndpoint(View):
                 error_message="ADMIN_USER_DOES_NOT_EXIST",
                 payload={"email": email},
             )
-            url = urljoin(
-                base_host(request=request, is_admin=True),
-                "?" + urlencode(exc.get_error_dict()),
-            )
+            url = _admin_redirect_url(request, query=urlencode(exc.get_error_dict()))
             return HttpResponseRedirect(url)
 
         # is_active
@@ -314,10 +298,7 @@ class InstanceAdminSignInEndpoint(View):
                 error_code=AUTHENTICATION_ERROR_CODES["ADMIN_USER_DEACTIVATED"],
                 error_message="ADMIN_USER_DEACTIVATED",
             )
-            url = urljoin(
-                base_host(request=request, is_admin=True),
-                "?" + urlencode(exc.get_error_dict()),
-            )
+            url = _admin_redirect_url(request, query=urlencode(exc.get_error_dict()))
             return HttpResponseRedirect(url)
 
         # Check password of the user
@@ -327,10 +308,7 @@ class InstanceAdminSignInEndpoint(View):
                 error_message="ADMIN_AUTHENTICATION_FAILED",
                 payload={"email": email},
             )
-            url = urljoin(
-                base_host(request=request, is_admin=True),
-                "?" + urlencode(exc.get_error_dict()),
-            )
+            url = _admin_redirect_url(request, query=urlencode(exc.get_error_dict()))
             return HttpResponseRedirect(url)
 
         # Check if the user is an instance admin
@@ -340,10 +318,7 @@ class InstanceAdminSignInEndpoint(View):
                 error_message="ADMIN_AUTHENTICATION_FAILED",
                 payload={"email": email},
             )
-            url = urljoin(
-                base_host(request=request, is_admin=True),
-                "?" + urlencode(exc.get_error_dict()),
-            )
+            url = _admin_redirect_url(request, query=urlencode(exc.get_error_dict()))
             return HttpResponseRedirect(url)
         # settings last active for the user
         user.is_active = True
@@ -356,7 +331,7 @@ class InstanceAdminSignInEndpoint(View):
 
         # get tokens for user
         user_login(request=request, user=user, is_admin=True)
-        url = urljoin(base_host(request=request, is_admin=True), "general/")
+        url = _admin_redirect_url(request, path="general/")
         return HttpResponseRedirect(url)
 
 
@@ -394,7 +369,11 @@ class InstanceAdminSignOutEndpoint(View):
             # Log the user out
             logout(request)
             url = get_safe_redirect_url(base_url=base_host(request=request, is_admin=True), next_path="")
+            if url and ("localhost" in url.lower() or "127.0.0.1" in url):
+                url = _admin_redirect_url(request, path="")
             return HttpResponseRedirect(url)
         except Exception:
             url = get_safe_redirect_url(base_url=base_host(request=request, is_admin=True), next_path="")
+            if url and ("localhost" in url.lower() or "127.0.0.1" in url):
+                url = _admin_redirect_url(request, path="")
             return HttpResponseRedirect(url)
