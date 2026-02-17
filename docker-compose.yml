@@ -48,6 +48,7 @@ services:
       - .env
     environment:
       REDIS_URL: redis://plane-redis:6379/
+      DATABASE_URL: postgresql://plane:plane@plane-db:5432/plane
     depends_on:
       - plane-db
       - plane-redis
@@ -66,6 +67,7 @@ services:
       - .env
     environment:
       REDIS_URL: redis://plane-redis:6379/
+      DATABASE_URL: postgresql://plane:plane@plane-db:5432/plane
     depends_on:
       - api
       - plane-db
@@ -85,6 +87,7 @@ services:
       - .env
     environment:
       REDIS_URL: redis://plane-redis:6379/
+      DATABASE_URL: postgresql://plane:plane@plane-db:5432/plane
     depends_on:
       - api
       - plane-db
@@ -102,6 +105,8 @@ services:
     env_file:
       - ./apps/api/.env
       - .env
+    environment:
+      DATABASE_URL: postgresql://plane:plane@plane-db:5432/plane
     depends_on:
       - plane-db
       - plane-redis
