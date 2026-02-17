@@ -40,20 +40,35 @@ class InstanceConfigurationEndpoint(BaseAPIView):
 
     @invalidate_cache(path="/api/instances/configurations/", user=False)
     @invalidate_cache(path="/api/instances/", user=False)
+    @invalidate_cache(path="/api/instances", user=False)
     def patch(self, request):
-        configurations = InstanceConfiguration.objects.filter(key__in=request.data.keys())
+        from plane.utils.instance_config_variables.core import workspace_management_config_variables
+
+        known_keys = {c["key"]: c for c in workspace_management_config_variables}
 
         bulk_configurations = []
-        for configuration in configurations:
-            value = request.data.get(configuration.key, configuration.value)
-            if configuration.is_encrypted:
-                configuration.value = encrypt_data(value)
-            else:
-                configuration.value = value
-            bulk_configurations.append(configuration)
+        for key, value in request.data.items():
+            configuration = InstanceConfiguration.objects.filter(key=key).first()
+            if configuration is None and key in known_keys:
+                config_def = known_keys[key]
+                is_encrypted = config_def.get("is_encrypted", False)
+                configuration = InstanceConfiguration.objects.create(
+                    key=key,
+                    value=encrypt_data(str(value)) if is_encrypted else str(value),
+                    category=config_def.get("category", "GENERAL"),
+                    is_encrypted=is_encrypted,
+                )
+            elif configuration is not None:
+                if configuration.is_encrypted:
+                    configuration.value = encrypt_data(value)
+                else:
+                    configuration.value = value
+                bulk_configurations.append(configuration)
 
-        InstanceConfiguration.objects.bulk_update(bulk_configurations, ["value"], batch_size=100)
+        if bulk_configurations:
+            InstanceConfiguration.objects.bulk_update(bulk_configurations, ["value"], batch_size=100)
 
+        configurations = InstanceConfiguration.objects.filter(key__in=request.data.keys())
         serializer = InstanceConfigurationSerializer(configurations, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
