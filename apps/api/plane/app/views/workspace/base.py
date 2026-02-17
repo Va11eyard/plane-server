@@ -11,10 +11,10 @@ import uuid
 
 from dateutil.relativedelta import relativedelta
 from django.db import IntegrityError
-from django.db.models import Case, Coalesce, Count, F, Func, IntegerField, OuterRef, Prefetch, Q, Value, When
+from django.db.models import Case, Count, F, Func, IntegerField, OuterRef, Prefetch, Q, Value, When
 
 from django.db.models.fields import DateField
-from django.db.models.functions import Cast, ExtractDay, ExtractWeek
+from django.db.models.functions import Cast, Coalesce, ExtractDay, ExtractWeek
 
 
 # Django imports
