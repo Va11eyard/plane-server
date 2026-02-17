@@ -2,6 +2,9 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # See the LICENSE file for details.
 
+# Python imports
+from urllib.parse import urlparse
+
 # Django imports
 from django.conf import settings
 from django.http import HttpRequest
@@ -21,13 +24,23 @@ def _is_localhost_url(url: str) -> bool:
 
 
 def _request_origin(request: Request | HttpRequest) -> str:
-    """Get scheme + host from request (works behind proxy with X-Forwarded-*)."""
+    """Get scheme + host from request. Prefer Referer (user's actual URL) over Host (may be internal behind proxy)."""
+    referer = request.META.get("HTTP_REFERER")
+    if referer:
+        parsed = urlparse(referer)
+        if parsed.scheme and parsed.netloc and not _is_localhost_url(referer):
+            return f"{parsed.scheme}://{parsed.netloc}"
+    # Fallback: Host header (proxy usually forwards original Host)
+    host = request.META.get("HTTP_HOST") or request.META.get("HTTP_X_FORWARDED_HOST")
+    if host and not _is_localhost_url(host):
+        scheme = "https" if getattr(request, "is_secure", lambda: False)() else "http"
+        return f"{scheme}://{host}"
+    # Last resort: build_absolute_uri
     if getattr(request, "build_absolute_uri", None):
         base = request.build_absolute_uri("/").rstrip("/")
-        return base
-    scheme = "https" if getattr(request, "is_secure", lambda: False)() else "http"
-    host = request.META.get("HTTP_HOST") or request.META.get("SERVER_NAME", "localhost")
-    return f"{scheme}://{host}"
+        if base and not _is_localhost_url(base):
+            return base
+    return ""
 
 
 def base_host(
@@ -51,13 +64,16 @@ def base_host(
             admin_base_path += "/"
 
         admin_url = settings.ADMIN_BASE_URL
-        # Avoid redirecting to localhost when user accesses via real host (e.g. 192.168.1.132)
+        # Avoid redirecting to localhost when user accesses via real host (ngrok, 192.168.x.x, etc.)
         if admin_url and _is_localhost_url(admin_url):
-            return _request_origin(request) + admin_base_path
+            origin = _request_origin(request)
+            if origin:
+                return origin + admin_base_path
+            admin_url = None  # fall through to base_origin
         if admin_url:
             return admin_url + admin_base_path
         else:
-            return (base_origin or _request_origin(request)) + admin_base_path
+            return (base_origin or _request_origin(request) or "") + admin_base_path
 
     # Space redirection
     if is_space:
