@@ -4,6 +4,7 @@
  * See the LICENSE file for details.
  */
 
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Lightbulb } from "lucide-react";
 import { Button } from "@plane/propel/button";
@@ -21,10 +22,21 @@ type IInstanceAIForm = {
 
 type AIFormValues = Record<TInstanceAIConfigurationKeys, string>;
 
+const PROVIDERS = [
+  { value: "openai", label: "OpenAI", placeholder: "gpt-4o-mini", keyPlaceholder: "sk-..." },
+  { value: "gemini", label: "Google Gemini", placeholder: "gemini-2.0-flash", keyPlaceholder: "AIza..." },
+  { value: "deepseek", label: "DeepSeek", placeholder: "deepseek-chat", keyPlaceholder: "sk-..." },
+] as const;
+
+type ProviderValue = (typeof PROVIDERS)[number]["value"];
+
 export function InstanceAIForm(props: IInstanceAIForm) {
   const { config } = props;
   // store
   const { updateInstanceConfigurations } = useInstance();
+  // provider state (managed outside react-hook-form to avoid type issues)
+  const [selectedProvider, setSelectedProvider] = useState<ProviderValue>("openai");
+  const providerInfo = PROVIDERS.find((p) => p.value === selectedProvider) ?? PROVIDERS[0];
   // form data
   const {
     handleSubmit,
@@ -37,55 +49,31 @@ export function InstanceAIForm(props: IInstanceAIForm) {
     },
   });
 
-  const aiFormFields: TControllerInputFormField[] = [
-    {
-      key: "LLM_MODEL",
-      type: "text",
-      label: "LLM Model",
-      description: (
-        <>
-          Choose an OpenAI engine.{" "}
-          <a
-            href="https://platform.openai.com/docs/models/overview"
-            target="_blank"
-            className="text-accent-primary hover:underline"
-            rel="noreferrer"
-          >
-            Learn more
-          </a>
-        </>
-      ),
-      placeholder: "gpt-4o-mini",
-      error: Boolean(errors.LLM_MODEL),
-      required: false,
-    },
-    {
-      key: "LLM_API_KEY",
-      type: "password",
-      label: "API key",
-      description: (
-        <>
-          You will find your API key{" "}
-          <a
-            href="https://platform.openai.com/api-keys"
-            target="_blank"
-            className="text-accent-primary hover:underline"
-            rel="noreferrer"
-          >
-            here.
-          </a>
-        </>
-      ),
-      placeholder: "sk-asddassdfasdefqsdfasd23das3dasdcasd",
-      error: Boolean(errors.LLM_API_KEY),
-      required: false,
-    },
-  ];
+  const modelField: TControllerInputFormField = {
+    key: "LLM_MODEL",
+    type: "text",
+    label: "LLM Model",
+    description: <>Model name for the selected provider.</>,
+    placeholder: providerInfo.placeholder,
+    error: Boolean(errors.LLM_MODEL),
+    required: false,
+  };
+
+  const apiKeyField: TControllerInputFormField = {
+    key: "LLM_API_KEY",
+    type: "password",
+    label: "API Key",
+    description: <>Your API key from the provider&apos;s dashboard.</>,
+    placeholder: providerInfo.keyPlaceholder,
+    error: Boolean(errors.LLM_API_KEY),
+    required: false,
+  };
 
   const onSubmit = async (formData: AIFormValues) => {
-    const payload: Partial<AIFormValues> = { ...formData };
-
-    await updateInstanceConfigurations(payload)
+    await updateInstanceConfigurations({
+      ...formData,
+      LLM_PROVIDER: selectedProvider,
+    } as Record<string, string>)
       .then(() =>
         setToast({
           type: TOAST_TYPE.SUCCESS,
@@ -100,11 +88,30 @@ export function InstanceAIForm(props: IInstanceAIForm) {
     <div className="space-y-8">
       <div className="space-y-3">
         <div>
-          <div className="pb-1 text-18 font-medium text-primary">OpenAI</div>
-          <div className="text-13 font-regular text-tertiary">If you use ChatGPT, this is for you.</div>
+          <div className="pb-1 text-18 font-medium text-primary">AI Provider</div>
+          <div className="text-13 font-regular text-tertiary">Configure your LLM provider and credentials.</div>
         </div>
+
+        {/* Provider selector — not part of react-hook-form */}
+        { }
+        <label className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-secondary">Provider</span>
+          <select
+            value={selectedProvider}
+            onChange={(e) => setSelectedProvider(e.target.value as ProviderValue)}
+            className="w-full max-w-xs rounded-md border border-border-primary bg-primary px-3 py-2 text-sm text-primary focus:outline-none focus:ring-2 focus:ring-accent-primary"
+          >
+            {PROVIDERS.map((p) => (
+              <option key={p.value} value={p.value}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        {/* Model + API key */}
         <div className="grid-col grid w-full grid-cols-1 items-center justify-between gap-x-12 gap-y-8 lg:grid-cols-3">
-          {aiFormFields.map((field) => (
+          {[modelField, apiKeyField].map((field) => (
             <ControllerInput
               key={field.key}
               control={control}
@@ -121,11 +128,11 @@ export function InstanceAIForm(props: IInstanceAIForm) {
       </div>
 
       <div className="flex flex-col gap-4 items-start">
-        <Button variant="primary" size="lg" onClick={handleSubmit(onSubmit)} loading={isSubmitting}>
+        <Button variant="primary" size="lg" onClick={() => void handleSubmit(onSubmit)()} loading={isSubmitting}>
           {isSubmitting ? "Saving" : "Save changes"}
         </Button>
 
-        <div className="relative inline-flex items-center gap-1.5 rounded-sm border border-accent-subtle bg-accent-subtle px-4 py-2 text-caption-sm-regular text-accent-secondary  ">
+        <div className="relative inline-flex items-center gap-1.5 rounded-sm border border-accent-subtle bg-accent-subtle px-4 py-2 text-caption-sm-regular text-accent-secondary">
           <Lightbulb className="size-4" />
           <div>
             If you have a preferred AI models vendor, please get in{" "}

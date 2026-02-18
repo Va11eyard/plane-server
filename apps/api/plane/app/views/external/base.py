@@ -114,7 +114,16 @@ def get_llm_config() -> Tuple[str | None, str | None, str | None]:
         bool(api_key),
     )
 
-    provider = SUPPORTED_PROVIDERS.get((provider_key or "").lower())
+    # Auto-detect provider from model name if not set or unknown
+    if not provider_key or provider_key.lower() not in SUPPORTED_PROVIDERS:
+        if model and model.startswith("gemini"):
+            provider_key = "gemini"
+        elif model and model.startswith("deepseek"):
+            provider_key = "deepseek"
+        else:
+            provider_key = "openai"
+
+    provider = SUPPORTED_PROVIDERS.get(provider_key.lower())
     if not provider:
         log_exception(ValueError(f"Unsupported provider: {provider_key}"))
         return None, None, None
