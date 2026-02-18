@@ -65,8 +65,8 @@ class AnthropicProvider(LLMProvider):
 
 class GeminiProvider(LLMProvider):
     name = "Gemini"
-    models = ["gemini-pro", "gemini-1.5-pro-latest", "gemini-pro-vision"]
-    default_model = "gemini-pro"
+    models = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash-lite"]
+    default_model = "gemini-2.0-flash"
 
 
 class DeepSeekProvider(LLMProvider):
@@ -143,12 +143,10 @@ def get_llm_response(task, prompt, api_key: str, model: str, provider: str) -> T
     """Helper to get LLM completion response"""
     final_text = task + "\n" + prompt
     try:
-        # For Gemini, prepend provider name to model
-        if provider.lower() == "gemini":
-            model = f"gemini/{model}"
-
         if provider.lower() == "deepseek":
             client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
+        elif provider.lower() == "gemini":
+            client = OpenAI(api_key=api_key, base_url="https://generativelanguage.googleapis.com/v1beta/openai/")
         else:
             client = OpenAI(api_key=api_key)
         chat_completion = client.chat.completions.create(
