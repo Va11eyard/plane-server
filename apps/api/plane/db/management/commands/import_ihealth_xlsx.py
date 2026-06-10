@@ -40,7 +40,7 @@ MEMBER_EMAILS = [
     "zhs@galamat.com",
     "dimash@galamat.com",
 ]
-OWNER_EMAIL = "syrym@galamat.com"
+OWNER_EMAIL = "admin@pro-ecta.kz"
 ASSIGNEE_EMAIL = "dimash@galamat.com"
 ADMIN_EMAILS = {"syrym@galamat.com", "zhs@galamat.com", "admin@pro-ecta.kz"}
 

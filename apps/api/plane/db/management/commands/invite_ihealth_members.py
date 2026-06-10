@@ -8,7 +8,7 @@ import jwt
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
-from plane.db.models import Project, ProjectMember, User, Workspace, WorkspaceMember, WorkspaceMemberInvite
+from plane.db.models import Profile, Project, ProjectMember, User, Workspace, WorkspaceMember, WorkspaceMemberInvite
 
 INVITES = [
     ("syrym@galamat.com", 20),
@@ -84,6 +84,22 @@ class Command(BaseCommand):
                     },
                 )
 
+            profile, _ = Profile.objects.get_or_create(user=user)
+            profile.last_workspace_id = workspace.id
+            profile.is_onboarded = True
+            profile.onboarding_step = {
+                "profile_complete": True,
+                "workspace_create": True,
+                "workspace_invite": True,
+                "workspace_join": True,
+            }
+            profile.save()
+
             self.stdout.write(self.style.SUCCESS(f"  Member access granted for {email} (role {role})"))
 
-        self.stdout.write(self.style.SUCCESS("Done. Users can refresh and join iHealth from invitations screen."))
+        if workspace.owner_id != admin.id:
+            workspace.owner = admin
+            workspace.save(update_fields=["owner"])
+            self.stdout.write(self.style.SUCCESS(f"Workspace owner set to {ADMIN_EMAIL}"))
+
+        self.stdout.write(self.style.SUCCESS("Done. Users can refresh and open iHealth."))
