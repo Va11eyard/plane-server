@@ -11,8 +11,9 @@ import { ChevronLeft, Download, Send } from "lucide-react";
 import { Button } from "@plane/propel/button";
 // components
 import { PageHead } from "@/components/core/page-title";
+import { MarkdownRenderer } from "@/components/ui/markdown-to-component";
 import { ReportService } from "@/services/report.service";
-import type { IActivityReportDetail } from "@/services/report.service";
+import type { IActivityReportDetail, ITelegramLinkToken } from "@/services/report.service";
 import type { Route } from "./+types/page";
 
 const reportService = new ReportService();
@@ -22,7 +23,7 @@ function ReportDetailPage({ params }: Route.ComponentProps) {
   const [telegramLoading, setTelegramLoading] = useState(false);
   const [telegramMessage, setTelegramMessage] = useState<string | null>(null);
   const [telegramError, setTelegramError] = useState<string | null>(null);
-  const [linkToken, setLinkToken] = useState<string | null>(null);
+  const [telegramLinkInfo, setTelegramLinkInfo] = useState<ITelegramLinkToken | null>(null);
 
   const reportQuery = useSWR<IActivityReportDetail>(
     workspaceSlug && reportId ? `workspace-report-${workspaceSlug}-${reportId}` : null,
@@ -65,7 +66,7 @@ function ReportDetailPage({ params }: Route.ComponentProps) {
     void reportService
       .createTelegramLinkToken()
       .then((res) => {
-        setLinkToken(res.instruction);
+        setTelegramLinkInfo(res);
         return res;
       })
       .catch((err: unknown) => {
@@ -149,9 +150,27 @@ function ReportDetailPage({ params }: Route.ComponentProps) {
             {report.created_by && <span>Автор: {report.created_by}</span>}
           </div>
 
-          {linkToken && (
+          {telegramLinkInfo && (
             <div className="mt-3 rounded border border-subtle bg-surface-2 px-3 py-2 text-13 text-primary">
-              {linkToken}
+              {telegramLinkInfo.bot_username ? (
+                <>
+                  Откройте бота{" "}
+                  <a
+                    href={`https://t.me/${telegramLinkInfo.bot_username}?start=${telegramLinkInfo.token}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-accent hover:underline"
+                  >
+                    @{telegramLinkInfo.bot_username}
+                  </a>{" "}
+                  и отправьте команду{" "}
+                  <code className="rounded bg-surface-1 px-1.5 py-0.5 font-mono text-12">
+                    /start {telegramLinkInfo.token}
+                  </code>
+                </>
+              ) : (
+                telegramLinkInfo.instruction
+              )}
             </div>
           )}
           {telegramMessage && (
@@ -166,7 +185,7 @@ function ReportDetailPage({ params }: Route.ComponentProps) {
           )}
 
           <div className="mt-4 rounded border border-subtle bg-surface-1 p-4">
-            <pre className="whitespace-pre-wrap font-sans text-13 leading-relaxed text-primary">{report.content}</pre>
+            <MarkdownRenderer markdown={report.content} className="text-13 leading-relaxed" />
           </div>
         </div>
       </div>

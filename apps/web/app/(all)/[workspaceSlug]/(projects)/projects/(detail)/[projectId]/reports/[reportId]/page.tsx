@@ -8,7 +8,9 @@ import { Link } from "react-router";
 import useSWR from "swr";
 import { ChevronLeft } from "lucide-react";
 import { PageHead } from "@/components/core/page-title";
+import { MarkdownRenderer } from "@/components/ui/markdown-to-component";
 import { ReportService } from "@/services/report.service";
+import type { IActivityReportDetail } from "@/services/report.service";
 import type { Route } from "./+types/page";
 
 const reportService = new ReportService();
@@ -16,15 +18,14 @@ const reportService = new ReportService();
 function ProjectReportDetailPage({ params }: Route.ComponentProps) {
   const { workspaceSlug, projectId, reportId } = params;
 
-  const {
-    data: report,
-    isLoading,
-    error,
-  } = useSWR(
+  const reportQuery = useSWR<IActivityReportDetail>(
     workspaceSlug && reportId ? `workspace-report-${workspaceSlug}-${reportId}` : null,
-    () => reportService.getReport(workspaceSlug, reportId!),
+    () => reportService.getReport(workspaceSlug, reportId),
     { revalidateOnFocus: false, shouldRetryOnError: false, errorRetryCount: 0 }
   );
+  const report = reportQuery.data;
+  const isLoading = reportQuery.isLoading;
+  const hasError = Boolean(reportQuery.error);
 
   const backUrl = `/${workspaceSlug}/projects/${projectId}/reports`;
 
@@ -37,7 +38,7 @@ function ProjectReportDetailPage({ params }: Route.ComponentProps) {
     );
   }
 
-  if (error || !report) {
+  if (hasError || !report) {
     return (
       <div className="flex h-full items-center justify-center px-page-x py-page-y">
         <PageHead title="Отчёт" />
@@ -78,7 +79,7 @@ function ProjectReportDetailPage({ params }: Route.ComponentProps) {
         </div>
 
         <div className="mt-4 rounded-lg border border-subtle bg-layer-2 p-5">
-          <pre className="whitespace-pre-wrap font-sans text-13 leading-relaxed text-primary">{report.content}</pre>
+          <MarkdownRenderer markdown={report.content} className="text-13 leading-relaxed" />
         </div>
       </div>
     </>

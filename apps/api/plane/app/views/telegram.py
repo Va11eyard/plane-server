@@ -17,12 +17,9 @@ from rest_framework.response import Response
 from plane.app.views.base import BaseAPIView
 from plane.authentication.session import BaseSessionAuthentication
 from plane.db.models import TelegramLinkToken, UserTelegramLink
+from plane.utils.telegram_bot import get_bot_token, handle_telegram_update, send_message, show_main_menu
 
 logger = logging.getLogger("plane.telegram")
-
-
-def get_bot_token() -> str | None:
-    return os.environ.get("TELEGRAM_BOT_TOKEN")
 
 
 def send_telegram_document(chat_id: int, file_bytes: bytes, filename: str, caption: str = "") -> tuple[bool, str]:
@@ -42,6 +39,36 @@ def send_telegram_document(chat_id: int, file_bytes: bytes, filename: str, capti
     except Exception as e:
         logger.exception("Telegram send failed")
         return False, str(e)
+
+
+def _link_account(chat_id: int, username: str, token_value: str) -> None:
+    link_token = (
+        TelegramLinkToken.objects.filter(token=token_value, used_at__isnull=True)
+        .select_related("user")
+        .first()
+    )
+    if link_token is None or link_token.expires_at < timezone.now():
+        send_message(chat_id, "Токен недействителен или истёк. Создайте новый в Plane.")
+        return
+
+    user = link_token.user
+    UserTelegramLink.objects.filter(user=user).delete()
+    UserTelegramLink.objects.filter(telegram_chat_id=chat_id).delete()
+    UserTelegramLink.objects.create(
+        user=user,
+        telegram_chat_id=chat_id,
+        telegram_username=username,
+        created_by=user,
+    )
+    link_token.used_at = timezone.now()
+    link_token.save(update_fields=["used_at"])
+
+    show_main_menu(
+        chat_id,
+        f"✅ Аккаунт привязан к {user.email}.\n\n"
+        "Теперь можно создавать отчёты прямо в Telegram — как в Plane.\n"
+        "Нажмите «📊 Новый отчёт».",
+    )
 
 
 class TelegramLinkStatusEndpoint(BaseAPIView):
@@ -106,57 +133,21 @@ class TelegramWebhookEndpoint(BaseAPIView):
             return Response({"ok": True}, status=status.HTTP_200_OK)
 
         message = update.get("message") or update.get("edited_message")
-        if not message:
-            return Response({"ok": True}, status=status.HTTP_200_OK)
+        if message:
+            text = (message.get("text") or "").strip()
+            chat = message.get("chat") or {}
+            chat_id = chat.get("id")
+            username = chat.get("username") or ""
 
-        text = (message.get("text") or "").strip()
-        chat = message.get("chat") or {}
-        chat_id = chat.get("id")
-        username = chat.get("username") or ""
+            if text.startswith("/start") and chat_id is not None:
+                parts = text.split(maxsplit=1)
+                if len(parts) >= 2:
+                    _link_account(chat_id, username, parts[1].strip())
+                    return Response({"ok": True}, status=status.HTTP_200_OK)
 
-        if not text.startswith("/start") or chat_id is None:
-            return Response({"ok": True}, status=status.HTTP_200_OK)
+        try:
+            handle_telegram_update(update)
+        except Exception:
+            logger.exception("Telegram update handler failed")
 
-        parts = text.split(maxsplit=1)
-        if len(parts) < 2:
-            _reply(chat_id, "Отправьте команду с токеном: /start <ваш_код>")
-            return Response({"ok": True}, status=status.HTTP_200_OK)
-
-        token_value = parts[1].strip()
-        link_token = (
-            TelegramLinkToken.objects.filter(token=token_value, used_at__isnull=True)
-            .select_related("user")
-            .first()
-        )
-        if link_token is None or link_token.expires_at < timezone.now():
-            _reply(chat_id, "Токен недействителен или истёк. Создайте новый в настройках Plane.")
-            return Response({"ok": True}, status=status.HTTP_200_OK)
-
-        user = link_token.user
-        UserTelegramLink.objects.filter(user=user).delete()
-        UserTelegramLink.objects.filter(telegram_chat_id=chat_id).delete()
-        UserTelegramLink.objects.create(
-            user=user,
-            telegram_chat_id=chat_id,
-            telegram_username=username,
-            created_by=user,
-        )
-        link_token.used_at = timezone.now()
-        link_token.save(update_fields=["used_at"])
-
-        _reply(chat_id, f"Аккаунт привязан к {user.email}. Теперь можно отправлять отчёты из Plane.")
         return Response({"ok": True}, status=status.HTTP_200_OK)
-
-
-def _reply(chat_id: int, text: str) -> None:
-    token = get_bot_token()
-    if not token:
-        return
-    try:
-        requests.post(
-            f"https://api.telegram.org/bot{token}/sendMessage",
-            json={"chat_id": chat_id, "text": text},
-            timeout=15,
-        )
-    except Exception:
-        logger.exception("Failed to send Telegram reply")

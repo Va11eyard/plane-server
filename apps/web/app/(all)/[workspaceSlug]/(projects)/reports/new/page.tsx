@@ -40,8 +40,8 @@ function NewReportPage({ params }: Route.ComponentProps) {
     const end = new Date();
     const start = new Date();
     start.setDate(start.getDate() - (days - 1));
-    setPeriodFrom(end.toISOString().slice(0, 10));
-    setPeriodTo(start.toISOString().slice(0, 10));
+    setPeriodFrom(start.toISOString().slice(0, 10));
+    setPeriodTo(end.toISOString().slice(0, 10));
   }, []);
 
   const toggleProject = (projectId: string) => {
@@ -68,28 +68,25 @@ function NewReportPage({ params }: Route.ComponentProps) {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    
+
     const reportService = new ReportService();
     const payload: ICreateReportPayload = {
       period_from,
       period_to,
       title: title || undefined,
-      project_ids: !useWholeWorkspace && selectedProjectIds.size > 0 
-        ? Array.from(selectedProjectIds) 
-        : undefined,
+      project_ids: !useWholeWorkspace && selectedProjectIds.size > 0 ? Array.from(selectedProjectIds) : undefined,
     };
-    
-    void reportService.createReport(workspaceSlug, payload)
-      .then((report) => {
-        navigate(`/${workspaceSlug}/reports/${report.id}`);
-        return report;
-      })
-      .catch((err: unknown) => {
+
+    void (async () => {
+      try {
+        const report = await reportService.createReport(workspaceSlug, payload);
+        void navigate(`/${workspaceSlug}/reports/${report.id}`);
+      } catch (err: unknown) {
         setError((err as { error?: string })?.error ?? "Не удалось создать отчёт");
-      })
-      .finally(() => {
+      } finally {
         setLoading(false);
-      });
+      }
+    })();
   };
 
   return (
@@ -109,7 +106,7 @@ function NewReportPage({ params }: Route.ComponentProps) {
         <div className="vertical-scrollbar scrollbar-md flex h-full flex-col overflow-y-auto px-5 md:px-9 pt-4">
           <h3 className="text-16 font-medium text-primary">Новый отчёт</h3>
           <p className="mt-1 text-13 text-tertiary">
-            Выберите проекты и период. AI сформирует отчёт по активности на русском языке.
+            Выберите проекты и период. AI сформирует портфельный отчёт о деятельности с суммаризацией по проектам.
           </p>
           <form onSubmit={handleSubmit} className="mt-5 flex max-w-lg flex-col gap-5">
             <div>
@@ -180,7 +177,9 @@ function NewReportPage({ params }: Route.ComponentProps) {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label htmlFor="period-from" className="mb-1.5 block text-13 font-medium text-primary">От</label>
+                <label htmlFor="period-from" className="mb-1.5 block text-13 font-medium text-primary">
+                  От
+                </label>
                 <input
                   id="period-from"
                   type="date"
@@ -191,7 +190,9 @@ function NewReportPage({ params }: Route.ComponentProps) {
                 />
               </div>
               <div>
-                <label htmlFor="period-to" className="mb-1.5 block text-13 font-medium text-primary">До</label>
+                <label htmlFor="period-to" className="mb-1.5 block text-13 font-medium text-primary">
+                  До
+                </label>
                 <input
                   id="period-to"
                   type="date"
@@ -204,7 +205,9 @@ function NewReportPage({ params }: Route.ComponentProps) {
             </div>
 
             <div>
-              <label htmlFor="report-title" className="mb-1.5 block text-13 font-medium text-primary">Название (необязательно)</label>
+              <label htmlFor="report-title" className="mb-1.5 block text-13 font-medium text-primary">
+                Название (необязательно)
+              </label>
               <input
                 id="report-title"
                 type="text"
@@ -245,4 +248,5 @@ function NewReportPage({ params }: Route.ComponentProps) {
   );
 }
 
-export default observer(NewReportPage);
+const ObservedNewReportPage = observer(NewReportPage);
+export default ObservedNewReportPage;
