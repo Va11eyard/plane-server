@@ -83,6 +83,7 @@ from .issue_type import IssueType
 
 from .recent_visit import UserRecentVisit
 from .report import ActivityReport
+from .telegram import TelegramLinkToken, UserTelegramLink
 
 from .label import Label
 

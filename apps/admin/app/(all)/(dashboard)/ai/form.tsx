@@ -24,6 +24,12 @@ type AIFormValues = Record<TInstanceAIConfigurationKeys, string>;
 
 const PROVIDERS = [
   { value: "openai", label: "OpenAI", placeholder: "gpt-4o-mini", keyPlaceholder: "sk-..." },
+  {
+    value: "anthropic",
+    label: "Anthropic",
+    placeholder: "claude-sonnet-4-5",
+    keyPlaceholder: "sk-ant-...",
+  },
   { value: "gemini", label: "Google Gemini", placeholder: "gemini-2.0-flash", keyPlaceholder: "AIza..." },
   { value: "deepseek", label: "DeepSeek", placeholder: "deepseek-chat", keyPlaceholder: "sk-..." },
 ] as const;
@@ -93,7 +99,7 @@ export function InstanceAIForm(props: IInstanceAIForm) {
         </div>
 
         {/* Provider selector — not part of react-hook-form */}
-        { }
+        {}
         <label className="flex flex-col gap-1.5">
           <span className="text-sm font-medium text-secondary">Provider</span>
           <select

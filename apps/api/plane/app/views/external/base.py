@@ -51,6 +51,8 @@ class OpenAIProvider(LLMProvider):
 class AnthropicProvider(LLMProvider):
     name = "Anthropic"
     models = [
+        "claude-sonnet-4-5",
+        "claude-sonnet-4-5-20250929",
         "claude-3-5-sonnet-20240620",
         "claude-3-haiku-20240307",
         "claude-3-opus-20240229",
@@ -60,7 +62,7 @@ class AnthropicProvider(LLMProvider):
         "claude-instant-1.2",
         "claude-instant-1",
     ]
-    default_model = "claude-3-sonnet-20240229"
+    default_model = "claude-sonnet-4-5"
 
 
 class GeminiProvider(LLMProvider):
@@ -120,6 +122,8 @@ def get_llm_config() -> Tuple[str | None, str | None, str | None]:
             provider_key = "gemini"
         elif model and model.startswith("deepseek"):
             provider_key = "deepseek"
+        elif model and model.startswith("claude"):
+            provider_key = "anthropic"
         else:
             provider_key = "openai"
 
@@ -136,8 +140,12 @@ def get_llm_config() -> Tuple[str | None, str | None, str | None]:
     if not model:
         model = provider.default_model
 
-    # Validate model is supported by provider
-    if model not in provider.models:
+    # Validate model is supported by provider (anthropic allows claude-* aliases)
+    if provider_key.lower() == "anthropic":
+        if not model.startswith("claude"):
+            log_exception(ValueError(f"Model {model} is not a valid Anthropic model"))
+            return None, None, None
+    elif model not in provider.models:
         log_exception(
             ValueError(
                 f"Model {model} not supported by {provider.name}. Supported models: {', '.join(provider.models)}"
@@ -152,6 +160,17 @@ def get_llm_response(task, prompt, api_key: str, model: str, provider: str) -> T
     """Helper to get LLM completion response"""
     final_text = task + "\n" + prompt
     try:
+        if provider.lower() == "anthropic":
+            import anthropic
+
+            client = anthropic.Anthropic(api_key=api_key)
+            message = client.messages.create(
+                model=model,
+                max_tokens=8192,
+                messages=[{"role": "user", "content": final_text}],
+            )
+            text = message.content[0].text if message.content else ""
+            return text, None
         if provider.lower() == "deepseek":
             client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
         elif provider.lower() == "gemini":

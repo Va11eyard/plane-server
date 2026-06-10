@@ -6,26 +6,72 @@
 
 import { Link } from "react-router";
 import useSWR from "swr";
-import { ChevronLeft } from "lucide-react";
+import { useState } from "react";
+import { ChevronLeft, Download, Send } from "lucide-react";
+import { Button } from "@plane/propel/button";
 // components
 import { PageHead } from "@/components/core/page-title";
 import { ReportService } from "@/services/report.service";
+import type { IActivityReportDetail } from "@/services/report.service";
 import type { Route } from "./+types/page";
 
 const reportService = new ReportService();
 
 function ReportDetailPage({ params }: Route.ComponentProps) {
   const { workspaceSlug, reportId } = params;
+  const [telegramLoading, setTelegramLoading] = useState(false);
+  const [telegramMessage, setTelegramMessage] = useState<string | null>(null);
+  const [telegramError, setTelegramError] = useState<string | null>(null);
+  const [linkToken, setLinkToken] = useState<string | null>(null);
 
-  const {
-    data: report,
-    isLoading,
-    error,
-  } = useSWR(
+  const reportQuery = useSWR<IActivityReportDetail>(
     workspaceSlug && reportId ? `workspace-report-${workspaceSlug}-${reportId}` : null,
-    () => reportService.getReport(workspaceSlug, reportId!),
+    () => reportService.getReport(workspaceSlug, reportId),
     { revalidateOnFocus: false, shouldRetryOnError: false, errorRetryCount: 0 }
   );
+  const report = reportQuery.data;
+  const isLoading = reportQuery.isLoading;
+  const hasLoadError = Boolean(reportQuery.error);
+
+  const { data: telegramStatus } = useSWR("telegram-link-status", () => reportService.getTelegramStatus(), {
+    revalidateOnFocus: false,
+    shouldRetryOnError: false,
+    errorRetryCount: 0,
+  });
+
+  const handleDownloadPdf = () => {
+    window.open(reportService.getReportPdfUrl(workspaceSlug, reportId), "_blank");
+  };
+
+  const handleSendTelegram = () => {
+    setTelegramLoading(true);
+    setTelegramError(null);
+    setTelegramMessage(null);
+    void reportService
+      .sendReportToTelegram(workspaceSlug, reportId)
+      .then((res) => {
+        setTelegramMessage(res.message);
+        return res;
+      })
+      .catch((err: unknown) => {
+        setTelegramError(err instanceof Error ? err.message : "Не удалось отправить");
+      })
+      .finally(() => {
+        setTelegramLoading(false);
+      });
+  };
+
+  const handleLinkTelegram = () => {
+    void reportService
+      .createTelegramLinkToken()
+      .then((res) => {
+        setLinkToken(res.instruction);
+        return res;
+      })
+      .catch((err: unknown) => {
+        setTelegramError(err instanceof Error ? err.message : "Не удалось создать токен");
+      });
+  };
 
   if (isLoading) {
     return (
@@ -36,7 +82,7 @@ function ReportDetailPage({ params }: Route.ComponentProps) {
     );
   }
 
-  if (error || !report) {
+  if (hasLoadError || !report) {
     return (
       <div className="flex h-full items-center justify-center px-5 py-5 md:px-9">
         <PageHead title="Отчёт" />
@@ -65,6 +111,32 @@ function ReportDetailPage({ params }: Route.ComponentProps) {
           >
             <ChevronLeft className="size-3.5" /> Назад к отчётам
           </Link>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleDownloadPdf}
+              prependIcon={<Download className="size-4" />}
+            >
+              Скачать PDF
+            </Button>
+            {telegramStatus?.linked ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={telegramLoading}
+                disabled={telegramLoading}
+                onClick={handleSendTelegram}
+                prependIcon={<Send className="size-4" />}
+              >
+                Отправить в Telegram
+              </Button>
+            ) : (
+              <Button variant="tertiary" size="sm" onClick={handleLinkTelegram}>
+                Привязать Telegram
+              </Button>
+            )}
+          </div>
         </div>
         <div className="vertical-scrollbar scrollbar-md flex h-full flex-col overflow-y-auto px-5 md:px-9 pt-4">
           <h3 className="text-16 font-medium text-primary">{report.title || "Без названия"}</h3>
@@ -76,6 +148,23 @@ function ReportDetailPage({ params }: Route.ComponentProps) {
             )}
             {report.created_by && <span>Автор: {report.created_by}</span>}
           </div>
+
+          {linkToken && (
+            <div className="mt-3 rounded border border-subtle bg-surface-2 px-3 py-2 text-13 text-primary">
+              {linkToken}
+            </div>
+          )}
+          {telegramMessage && (
+            <div className="mt-3 rounded border border-green-300 bg-green-50 px-3 py-2 text-13 text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-400">
+              {telegramMessage}
+            </div>
+          )}
+          {telegramError && (
+            <div className="mt-3 rounded border border-red-300 bg-red-50 px-3 py-2 text-13 text-red-600 dark:border-red-800 dark:bg-red-950 dark:text-red-400">
+              {telegramError}
+            </div>
+          )}
+
           <div className="mt-4 rounded border border-subtle bg-surface-1 p-4">
             <pre className="whitespace-pre-wrap font-sans text-13 leading-relaxed text-primary">{report.content}</pre>
           </div>

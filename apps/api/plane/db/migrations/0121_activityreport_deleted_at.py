@@ -29,10 +29,16 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(add_deleted_at_if_not_exists, noop),
-        migrations.AlterField(
-            model_name="activityreport",
-            name="deleted_at",
-            field=models.DateTimeField(blank=True, null=True, verbose_name="Deleted At"),
+        migrations.SeparateDatabaseAndState(
+            state_operations=[
+                migrations.AddField(
+                    model_name="activityreport",
+                    name="deleted_at",
+                    field=models.DateTimeField(blank=True, null=True, verbose_name="Deleted At"),
+                ),
+            ],
+            database_operations=[
+                migrations.RunPython(add_deleted_at_if_not_exists, noop),
+            ],
         ),
     ]

@@ -5,7 +5,13 @@
 from django.urls import path
 
 
-from plane.app.views.report import WorkspaceReportsEndpoint, WorkspaceReportDetailEndpoint
+from plane.app.views.report import (
+    WorkspaceReportDetailEndpoint,
+    WorkspaceReportPdfEndpoint,
+    WorkspaceReportSendTelegramEndpoint,
+    WorkspaceReportsEndpoint,
+    WorkspaceWeeklyReportEndpoint,
+)
 from plane.app.views import (
     UserWorkspaceInvitationsViewSet,
     WorkSpaceViewSet,
@@ -265,8 +271,23 @@ urlpatterns = [
         name="workspace-reports",
     ),
     path(
+        "workspaces/<str:slug>/reports/weekly/",
+        WorkspaceWeeklyReportEndpoint.as_view(),
+        name="workspace-report-weekly",
+    ),
+    path(
         "workspaces/<str:slug>/reports/<uuid:pk>/",
         WorkspaceReportDetailEndpoint.as_view(),
         name="workspace-report-detail",
+    ),
+    path(
+        "workspaces/<str:slug>/reports/<uuid:pk>/pdf/",
+        WorkspaceReportPdfEndpoint.as_view(),
+        name="workspace-report-pdf",
+    ),
+    path(
+        "workspaces/<str:slug>/reports/<uuid:pk>/send-telegram/",
+        WorkspaceReportSendTelegramEndpoint.as_view(),
+        name="workspace-report-send-telegram",
     ),
 ]

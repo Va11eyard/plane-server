@@ -6,7 +6,8 @@
 
 import { Link, useNavigate } from "react-router";
 import useSWR from "swr";
-import { Plus } from "lucide-react";
+import { useState } from "react";
+import { Calendar, Plus } from "lucide-react";
 import { Button } from "@plane/propel/button";
 // components
 import { PageHead } from "@/components/core/page-title";
@@ -19,16 +20,34 @@ const reportService = new ReportService();
 function ReportsListPage({ params }: Route.ComponentProps) {
   const { workspaceSlug } = params;
   const navigate = useNavigate();
+  const [weeklyLoading, setWeeklyLoading] = useState(false);
+  const [weeklyError, setWeeklyError] = useState<string | null>(null);
 
-  const {
-    data: reports,
-    isLoading,
-    error,
-  } = useSWR(
+  const reportsQuery = useSWR<IActivityReportListItem[]>(
     workspaceSlug ? `workspace-reports-${workspaceSlug}` : null,
     () => reportService.getReports(workspaceSlug),
     { revalidateOnFocus: false, shouldRetryOnError: false, errorRetryCount: 0 }
   );
+  const reports = reportsQuery.data;
+  const isLoading = reportsQuery.isLoading;
+  const hasLoadError = Boolean(reportsQuery.error);
+
+  const handleWeeklyReport = () => {
+    setWeeklyError(null);
+    setWeeklyLoading(true);
+    void reportService
+      .createWeeklyReport(workspaceSlug)
+      .then((report) => {
+        void navigate(`/${workspaceSlug}/reports/${report.id}`);
+        return report;
+      })
+      .catch((err: unknown) => {
+        setWeeklyError(err instanceof Error ? err.message : "Не удалось создать отчёт");
+      })
+      .finally(() => {
+        setWeeklyLoading(false);
+      });
+  };
 
   return (
     <>
@@ -36,16 +55,33 @@ function ReportsListPage({ params }: Route.ComponentProps) {
       <div className="flex h-full w-full flex-col overflow-hidden py-5">
         <div className="flex items-center justify-between gap-2 px-5 md:px-9">
           <h3 className="text-16 font-medium text-primary">Отчёты</h3>
-          <Link to={`/${workspaceSlug}/reports/new`}>
-            <Button variant="primary" size="sm" prependIcon={<Plus className="size-4" />}>
-              Сгенерировать
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              loading={weeklyLoading}
+              disabled={weeklyLoading}
+              prependIcon={<Calendar className="size-4" />}
+              onClick={handleWeeklyReport}
+            >
+              Отчёт за 7 дней
             </Button>
-          </Link>
+            <Link to={`/${workspaceSlug}/reports/new`}>
+              <Button variant="primary" size="sm" prependIcon={<Plus className="size-4" />}>
+                Сгенерировать
+              </Button>
+            </Link>
+          </div>
         </div>
         <div className="vertical-scrollbar scrollbar-md flex h-full flex-col overflow-y-auto px-5 md:px-9 pt-4">
+          {weeklyError && (
+            <div className="mb-3 rounded border border-red-300 bg-red-50 px-3 py-2 text-13 text-red-600 dark:border-red-800 dark:bg-red-950 dark:text-red-400">
+              {weeklyError}
+            </div>
+          )}
           {isLoading ? (
             <p className="text-13 text-tertiary">Загрузка...</p>
-          ) : error ? (
+          ) : hasLoadError ? (
             <div className="max-w-md">
               <h4 className="text-16 font-semibold text-primary">Не удалось загрузить отчёты</h4>
               <p className="mt-2 text-13 text-tertiary">Проверьте, что бэкенд (API) запущен и доступен.</p>
@@ -66,11 +102,13 @@ function ReportsListPage({ params }: Route.ComponentProps) {
             </div>
           ) : (
             <div className="flex flex-col gap-2">
-              {(reports as IActivityReportListItem[]).map((r) => (
+              {reports.map((r) => (
                 <button
                   key={r.id}
                   type="button"
-                  onClick={() => navigate(`/${workspaceSlug}/reports/${r.id}`)}
+                  onClick={() => {
+                    void navigate(`/${workspaceSlug}/reports/${r.id}`);
+                  }}
                   className="group flex w-full items-center justify-between rounded-lg border border-subtle bg-layer-2 px-4 py-3 text-left transition-all duration-200 hover:border-strong hover:shadow-raised-200"
                 >
                   <div className="flex flex-col gap-0.5">
