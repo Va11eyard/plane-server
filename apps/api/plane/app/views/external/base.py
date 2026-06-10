@@ -162,6 +162,7 @@ def get_llm_response(task, prompt, api_key: str, model: str, provider: str) -> T
     try:
         if provider.lower() == "anthropic":
             import anthropic
+            from anthropic.types import TextBlock
 
             client = anthropic.Anthropic(api_key=api_key)
             message = client.messages.create(
@@ -169,7 +170,8 @@ def get_llm_response(task, prompt, api_key: str, model: str, provider: str) -> T
                 max_tokens=8192,
                 messages=[{"role": "user", "content": final_text}],
             )
-            text = message.content[0].text if message.content else ""
+            text_parts = [block.text for block in message.content if isinstance(block, TextBlock)]
+            text = "\n".join(text_parts) if text_parts else ""
             return text, None
         if provider.lower() == "deepseek":
             client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
