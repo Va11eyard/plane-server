@@ -64,7 +64,7 @@ function ReportsListPage({ params }: Route.ComponentProps) {
               prependIcon={<Calendar className="size-4" />}
               onClick={handleWeeklyReport}
             >
-              Отчёт за 7 дней
+              {weeklyLoading ? "Генерация…" : "Отчёт за 7 дней"}
             </Button>
             <Link to={`/${workspaceSlug}/reports/new`}>
               <Button variant="primary" size="sm" prependIcon={<Plus className="size-4" />}>
@@ -74,6 +74,11 @@ function ReportsListPage({ params }: Route.ComponentProps) {
           </div>
         </div>
         <div className="vertical-scrollbar scrollbar-md flex h-full flex-col overflow-y-auto px-5 md:px-9 pt-4">
+          {weeklyLoading && (
+            <div className="mb-3 rounded border border-subtle bg-surface-2 px-3 py-2 text-13 text-primary">
+              Генерируем отчёт за 7 дней… Это может занять 1–3 минуты, не закрывайте страницу.
+            </div>
+          )}
           {weeklyError && (
             <div className="mb-3 rounded border border-red-300 bg-red-50 px-3 py-2 text-13 text-red-600 dark:border-red-800 dark:bg-red-950 dark:text-red-400">
               {weeklyError}
