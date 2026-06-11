@@ -17,6 +17,12 @@ USERS = [
         "instance_admin": True,
     },
     {
+        "email": "admin@galamat.com",
+        "password": "Galamat123!",
+        "display_name": "Admin Galamat",
+        "instance_admin": True,
+    },
+    {
         "email": "syrym@galamat.com",
         "password": "Syrym123!",
         "display_name": "Сырым",
