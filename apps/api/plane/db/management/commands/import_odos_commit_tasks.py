@@ -8,8 +8,8 @@ from django.utils import timezone
 
 from plane.db.models import Issue, IssueAssignee, IssueLink, Project, State, User, Workspace
 
-COMMIT_SHA = "bc13e762"
-COMMIT_URL = "https://github.com/Va11eyard/ODOS/commit/bc13e762b6413feea6c5f45913fe4c96b6d18b5a"
+COMMIT_SHA = "616bfbc2"
+COMMIT_URL = "https://github.com/Va11eyard/ODOS/commit/616bfbc2cc1e6919c87f201bbdff63128ffe9bdf"
 ROOT_MARKER = f"[GitHub {COMMIT_SHA}]"
 
 WORKSPACE_SLUG = "ihealth"
@@ -18,109 +18,70 @@ OWNER_EMAIL = "admin@pro-ecta.kz"
 ASSIGNEE_EMAIL = "dimash@galamat.com"
 
 EPIC = {
-    "title": "feat(patient): patient accounts, full screening UX, and post-test risk flows",
+    "title": "feat(patient,web): результаты скрининга, выход из сессии, анкета по коррекции",
     "summary": (
-        "End-to-end patient self-service and Figma-aligned vision screening across patient app, "
-        "shared test packages, staff web app, and API."
+        "Результаты скрининга, выход из сессии, анкета по коррекции (очки/линзы v2) "
+        "и колонка «Коррекция» в списке пациентов. "
+        "Затронуто: apps/patient, apps/web, internal/domain, internal/usecase, "
+        "internal/delivery/http, internal/repository/postgres, packages/test-ui."
     ),
     "sections": [
         {
-            "title": "Patient authentication and onboarding",
+            "title": "Пациентское приложение — хаб и «Мой результат»",
             "tasks": [
-                "Login, registration, mandatory password change, and multi-step onboarding wizard",
-                "Session-scoped storage for pending onboarding and password-change credentials",
-                "Extend usePatientAuth: password login, registration, onboarding, forced password-change routing",
-                "Patient-account API client (org search, onboarding, change-password)",
-                "Shared FormSubmitHandler type; replace deprecated React FormEvent on auth forms",
-                "Fix react-hooks/set-state-in-effect lint (lazy useState, useEffect for redirects only)",
+                "Кнопка «Мой результат» в TestHubHeader → /test/[sessionId]/results",
+                "Страница PatientMyResults + route results/page.tsx",
+                "Парсинг результатов: patient-test-results.ts (карточки риска, сводка сессии)",
+                "Rule-based ODOS AI: patient-results-ai.ts (рекомендации, Q&A, ai_summary из анкеты)",
+                "fetchSessionTestResults() в api.ts",
+                "TestHubHeader на странице результатов (отправка теста, профиль, выход)",
+                "Навигация «Назад» — иконка ArrowLeft вместо «←»",
             ],
         },
         {
-            "title": "Backend: patient accounts, PHI, and questionnaire",
+            "title": "Пациентское приложение — пост-тест и навигация",
             "tasks": [
-                "Migrations 000013–000020: patient accounts, onboarding, encrypted payloads, questionnaire",
-                "Patient account auth HTTP handlers, repository, and use cases",
-                "Encrypt test-result payloads at rest; extend PHI/crypto helpers",
-                "Health questionnaire domain, use case, and persistence",
-                "Wire new routes in API router; update screening/patient use cases",
-                "Report findings helpers and screening rule updates",
+                "После теста основная кнопка ведёт на хаб («На главную»), не к следующему тесту",
+                "primaryButtonLabel в PostTestFlow / RiskResult / OdosTestRiskResultShell (@odos/test-ui)",
+                "IshiharaManualAnswerPad: иконка Delete вместо «←» на клавиатуре ответов",
             ],
         },
         {
-            "title": "Patient app: test hub and session flow",
+            "title": "Пациентское приложение — выход из сессии",
             "tasks": [
-                "Rebuild test session hub: program cards, prep, calibration, comprehensive ordering",
-                "Fix session expiry: defer token clear until post-test UI finishes",
-                "Remove staff-only placeholders; unify flow via test-program meta",
-                "Health questionnaire route and wizard UI under test session",
-                "Expand test orchestration: prep → live test → disclaimer → risk → deferred API submit",
+                "exitPatientSession() (patient-session-exit.ts) — единая точка выхода",
+                "Маршрут после выхода: accessCode → /enter-code, аккаунт → /login",
+                "router.replace с ?logged_out=1 / ?expired=1 вместо push",
+                "PatientSessionProvider: не восстанавливать сессию при logged_out/expired на login/enter-code",
+                "Обновлены обработчики выхода: хаб, тесты, результаты, PatientSessionChrome, анкета (401)",
+                "Сообщения «Вы вышли из сессии» на enter-code и login",
             ],
         },
         {
-            "title": "Vision tests — Shared test-engine",
+            "title": "Анкета о здоровье — очки/линзы (v2)",
             "tasks": [
-                "Risk/summary modules: landolt, stress, duochrome, ishihara, radiant, pelli, amsler",
-                "Align Pelli–Robson risk bands and subtitles with ТЗ",
-                "Amsler risk subtitles per finding type",
-                "Replace deprecated ISHIHARA_DIAGNOSIS_LABEL_RU with DIAGNOSIS_LABELS",
-                "Fix DOM typing: globalThis instead of window in test-engine",
-                "Fix radiant-acuity pair-id narrowing; extend purkinje-csf tests",
+                "Вопрос glasses: «Использовали ли вы когда-либо очки или контактные линзы?»",
+                "Ответы: no / yes (сейчас не ношу) / still_wearing (ношу сейчас)",
+                "Backend: валидация v2; legacy distance/near/always → still_wearing",
+                "domain/glasses_history.go: NormalizeGlassesHistory, IsValidGlassesHistoryAnswer, GlassesHistoryFromQuestionnaireJSON",
+                "AI summary анкеты учитывает текущую и прошлую коррекцию",
             ],
         },
         {
-            "title": "Vision tests — Shared test-ui",
+            "title": "Админка (web) — колонка «Коррекция»",
             "tasks": [
-                "Figma-aligned shells: how-to, layouts, complete transitions, post-test flows",
-                "OdosTestRiskResultShell with inline risk-banner colors (Tailwind purge fix)",
-                "Pelli–Robson results: TZ-based copy, logCS / accuracy / time metrics",
-                "Amsler results: per-eye outcomes, distortion zone count, risk-colored banner",
-                "Astigmatism dial geometry fixes; export full test-ui surface",
+                "GET /patients и GET /patients/:id возвращают glasses_history",
+                "PatientScreeningSnapshot + поле GlassesHistory из health_questionnaire_json",
+                "Тип GlassesHistory в api.ts; GLASSES_HISTORY_LABELS в patients.ts",
+                "PatientTable: колонка «Коррекция» (Нет / Да / Ношу сейчас / —)",
+                "Карта миопии (heatmap) без изменений — только risk_level из тестов",
             ],
         },
         {
-            "title": "Vision tests — Patient implementations",
+            "title": "Тесты",
             "tasks": [
-                "Landolt & Stress: MonocularTestFlow, StressTestUI, deferred submit + post-test flow",
-                "Ishihara: manual answer pad, plate flow, post-test risk UI",
-                "Duochrome, Astigmatism, Amsler, Pelli–Robson: live UI wired to new layouts",
-                "Amsler: 3-step how-to, distortion choice, draw canvas, zone scanning payload",
-                "Pelli–Robson: Sloan input, contrast steps, stop rule, 4.36 mm letter sizing",
-                "Radiant figure: dial-based axis selection and updated sizing hooks",
-            ],
-        },
-        {
-            "title": "Staff web app",
-            "tasks": [
-                "CreatePatientDialog: optional patient account provisioning with credentials modal",
-                "Update patient table/detail tabs, screening creation, triage, and results views",
-                "Align web test components and Ishihara results with shared engine labels",
-                "Screening session events API route; session event hook updates",
-            ],
-        },
-        {
-            "title": "Assets and tooling",
-            "tasks": [
-                "Patient/web public assets (Amsler SVGs, astigmatism, prep icons, logos, favicons)",
-                "Point patient Tailwind @source at packages/test-ui",
-                "Update .env.example, docker-compose, and root package scripts",
-            ],
-        },
-        {
-            "title": "Lint and TypeScript hygiene",
-            "tasks": [
-                "OrganizationPicker: drop redundant value→query sync effect",
-                "MonocularTestFlow: remove unused onClose prop",
-                "CreatePatientDialog: handleCreateDialogOpenChange for form reset on close",
-                "Patient/web IshiharaResultsScreen: migrate to DIAGNOSIS_LABELS",
-            ],
-        },
-        {
-            "title": "Breaking changes & rollout",
-            "tasks": [
-                "Apply DB migrations 000013–000020 on all environments",
-                "Configure new patient-auth env vars",
-                "Verify account-backed patient app flows after deploy",
-                "Verify staff can provision logins from Create Patient dialog",
+                "domain/glasses_history_test.go, health_questionnaire_test.go (still_wearing в AI summary)",
+                "screening_test.go: CompleteSessionValidated для patient с заполненной анкетой",
             ],
         },
     ],
@@ -132,7 +93,7 @@ def html_desc(text: str) -> str:
 
 
 class Command(BaseCommand):
-    help = "Import ODOS GitHub commit bc13e762 tasks into Plane (iHealth / ODOS Check UP)"
+    help = "Import latest ODOS GitHub commit tasks into Plane (iHealth / ODOS Check UP)"
 
     def add_arguments(self, parser):
         parser.add_argument("--force", action="store_true", help="Delete existing import and re-create")
