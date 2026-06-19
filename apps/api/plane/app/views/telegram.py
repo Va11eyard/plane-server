@@ -66,8 +66,8 @@ def _link_account(chat_id: int, username: str, token_value: str) -> None:
     show_main_menu(
         chat_id,
         f"✅ Аккаунт привязан к {user.email}.\n\n"
-        "Теперь можно создавать отчёты прямо в Telegram — как в Plane.\n"
-        "Нажмите «📊 Новый отчёт».",
+        "📊 Новый отчёт — PDF по проектам.\n"
+        "📝 Новая задача — создание задачи в Project Office.",
     )
 
 

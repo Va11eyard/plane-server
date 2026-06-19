@@ -11,6 +11,7 @@ from typing import Any
 import requests
 from django.core.cache import cache
 from plane.db.models import Project, UserTelegramLink, Workspace
+from plane.utils.telegram_task_bot import handle_task_callback, handle_task_message, start_task_wizard
 
 logger = logging.getLogger("plane.telegram")
 
@@ -24,9 +25,20 @@ PROJECTS_PER_PAGE = 8
 SESSION_KEY = "telegram_report_session:{chat_id}"
 
 MAIN_KEYBOARD = {
-    "keyboard": [[{"text": "📊 Новый отчёт"}], [{"text": "ℹ️ Помощь"}]],
+    "keyboard": [
+        [{"text": "📊 Новый отчёт"}, {"text": "📝 Новая задача"}],
+        [{"text": "ℹ️ Помощь"}],
+    ],
     "resize_keyboard": True,
     "is_persistent": True,
+}
+
+TASK_TRIGGERS = {
+    "/task",
+    "📝 новая задача",
+    "новая задача",
+    "создать задачу",
+    "новая задача в plane",
 }
 
 REPORT_TRIGGERS = {
@@ -125,6 +137,11 @@ def _is_report_trigger(text: str) -> bool:
     return normalized in REPORT_TRIGGERS or normalized.startswith("/report")
 
 
+def _is_task_trigger(text: str) -> bool:
+    normalized = text.strip().lower()
+    return normalized in TASK_TRIGGERS or normalized.startswith("/task")
+
+
 def _projects_summary(session: dict[str, Any]) -> str:
     if session.get("use_whole_workspace"):
         return "Весь воркспейс"
@@ -206,11 +223,14 @@ def show_main_menu(chat_id: int, text: str | None = None) -> None:
 def show_help(chat_id: int) -> None:
     send_message(
         chat_id,
-        "📊 Новый отчёт — пошаговый мастер как в Plane:\n"
+        "📊 Новый отчёт — пошаговый мастер:\n"
         "1) выбор проектов\n"
         "2) период (день / неделя / месяц)\n"
         "3) генерация PDF и отправка в чат\n\n"
-        "Команды: /report — новый отчёт, /menu — главное меню",
+        "📝 Новая задача — создание задачи в Project Office:\n"
+        "опишите задачу текстом (проект, исполнитель, срок).\n"
+        "Бот уточнит детали и создаст задачу в Plane.\n\n"
+        "Команды: /report, /task, /menu",
         reply_markup=MAIN_KEYBOARD,
     )
 
@@ -230,6 +250,7 @@ def start_report_wizard(chat_id: int, user) -> None:
     save_session(
         chat_id,
         {
+            "mode": "report",
             "step": "workspace",
             "workspaces": [{"id": str(ws.id), "slug": ws.slug, "name": ws.name} for ws in workspaces],
         },
@@ -240,6 +261,7 @@ def start_report_wizard(chat_id: int, user) -> None:
 def _start_projects_step(chat_id: int, user, workspace: Workspace) -> None:
     projects = get_workspace_projects(user, workspace)
     session = {
+        "mode": "report",
         "step": "projects",
         "workspace_id": str(workspace.id),
         "workspace_slug": workspace.slug,
@@ -350,6 +372,25 @@ def handle_callback(callback: dict) -> None:
     link = get_link(chat_id)
     if not link:
         answer_callback(callback_id, "Сначала привяжите аккаунт через Plane")
+        return
+
+    session = get_session(chat_id) or {}
+
+    if handle_task_callback(
+        data,
+        chat_id,
+        message_id,
+        link,
+        session,
+        callback_id,
+        answer_callback=answer_callback,
+        edit_message=edit_message,
+        send_message=send_message,
+        save_session=save_session,
+        clear_session=clear_session,
+        show_main_menu=show_main_menu,
+        MAIN_KEYBOARD=MAIN_KEYBOARD,
+    ):
         return
 
     if data.startswith("w:"):
@@ -498,7 +539,8 @@ def handle_message(message: dict) -> None:
             if link:
                 show_main_menu(
                     chat_id,
-                    f"Аккаунт привязан: {link.user.email}\n\nНажмите «📊 Новый отчёт» для создания отчёта.",
+                    f"Аккаунт привязан: {link.user.email}\n\n"
+                    "📊 Новый отчёт или 📝 Новая задача в Project Office.",
                 )
             else:
                 send_message(chat_id, "Отправьте команду с токеном: /start <ваш_код>\nТокен создаётся в Plane.")
@@ -517,7 +559,33 @@ def handle_message(message: dict) -> None:
         start_report_wizard(chat_id, link.user)
         return
 
-    show_main_menu(chat_id, "Используйте кнопку «📊 Новый отчёт» или команду /report.")
+    if _is_task_trigger(text):
+        start_task_wizard(
+            chat_id,
+            link.user,
+            send_message=send_message,
+            save_session=save_session,
+            clear_session=clear_session,
+            MAIN_KEYBOARD=MAIN_KEYBOARD,
+        )
+        return
+
+    session = get_session(chat_id)
+    if session and handle_task_message(
+        chat_id,
+        text,
+        link,
+        session,
+        send_message=send_message,
+        save_session=save_session,
+        get_session=get_session,
+        show_main_menu=show_main_menu,
+        clear_session=clear_session,
+        MAIN_KEYBOARD=MAIN_KEYBOARD,
+    ):
+        return
+
+    show_main_menu(chat_id, "Используйте «📊 Новый отчёт», «📝 Новая задача» или /help.")
 
 
 def handle_telegram_update(update: dict) -> None:
