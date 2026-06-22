@@ -8,7 +8,13 @@ from django.core.management.base import BaseCommand, CommandError
 
 from plane.db.models import GitHubCommitImportLog, GitHubRepoSync, User
 from plane.utils.github_commit_import_service import import_commit_plan, validate_plan
-from plane.utils.github_sync_orchestrator import execute_import_log, scan_all_repos, scan_repo_sync, set_last_imported_sha
+from plane.utils.github_sync_orchestrator import (
+    can_sync_github_tasks,
+    execute_import_log,
+    scan_all_repos,
+    scan_repo_sync,
+    set_last_imported_sha,
+)
 
 
 class Command(BaseCommand):
@@ -18,7 +24,7 @@ class Command(BaseCommand):
         parser.add_argument("--dry-run", action="store_true", help="Scan and show previews only")
         parser.add_argument("--yes", action="store_true", help="Import without confirmation")
         parser.add_argument("--repo", help="Owner/name e.g. Va11eyard/ODOS")
-        parser.add_argument("--actor", default="admin@pro-ecta.kz")
+        parser.add_argument("--actor", default="dimash@galamat.group")
         parser.add_argument("--set-last-sha", help="Update last imported SHA without importing")
         parser.add_argument("--sha", help="Import specific commit SHA")
         parser.add_argument("--plan", help="Path to plan JSON file (with --sha)")
@@ -27,6 +33,8 @@ class Command(BaseCommand):
         actor = User.objects.filter(email=options["actor"]).first()
         if not actor:
             raise CommandError(f"Actor {options['actor']} not found")
+        if not can_sync_github_tasks(actor):
+            raise CommandError(f"Пользователь {options['actor']} не может импортировать GitHub-задачи")
 
         if options["set_last_sha"]:
             self._set_last_sha(options)

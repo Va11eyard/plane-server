@@ -14,20 +14,45 @@ from plane.utils.github_commit_import_service import validate_plan
 logger = logging.getLogger("plane.github")
 
 PLAN_INSTRUCTION = (
-    "Ты помощник менеджера. По коммиту GitHub сформируй структуру задач для Plane. "
+    "Ты помощник проджект-менеджера. По коммиту GitHub составь краткий список задач для Plane. "
+    "Пиши только о реальных изменениях из коммита, без выдуманной работы. "
     "Ответь ТОЛЬКО валидным JSON без markdown."
 )
 
 PLAN_SCHEMA = """{
   "epic_title": "краткое название эпика из commit message",
-  "epic_summary": "1-3 предложения что сделано",
+  "epic_summary": "1-2 предложения: что именно изменилось",
   "sections": [
     {
-      "title": "Логическая секция (модуль/область)",
-      "tasks": ["конкретная подзадача", "..."]
+      "title": "модуль или область (apps/web, auth и т.п.)",
+      "tasks": ["конкретное изменение из коммита"]
     }
   ]
 }"""
+
+MAX_PLAN_SECTIONS = 3
+MAX_PLAN_TASKS = 10
+
+
+def _cap_plan_size(plan: dict[str, Any]) -> dict[str, Any]:
+    sections = plan.get("sections") or []
+    capped_sections: list[dict[str, Any]] = []
+    tasks_left = MAX_PLAN_TASKS
+    for section in sections[:MAX_PLAN_SECTIONS]:
+        if tasks_left <= 0:
+            break
+        tasks = [str(t).strip() for t in (section.get("tasks") or []) if str(t).strip()][:tasks_left]
+        if not tasks:
+            continue
+        capped_sections.append(
+            {
+                "title": (section.get("title") or "Изменения").strip()[:255],
+                "tasks": tasks,
+            }
+        )
+        tasks_left -= len(tasks)
+    plan["sections"] = capped_sections or sections[:1]
+    return plan
 
 
 def _extract_json(text: str) -> dict[str, Any] | None:
@@ -60,11 +85,11 @@ def _fallback_plan_from_files(commit_message: str, files: list[dict[str, str]]) 
         by_area[area].append(f"{status}: {path}")
 
     sections = []
-    for area, items in sorted(by_area.items()):
+    for area, items in sorted(by_area.items())[:MAX_PLAN_SECTIONS]:
         sections.append(
             {
                 "title": area,
-                "tasks": items[:15],
+                "tasks": items[:5],
             }
         )
     if not sections:
@@ -95,7 +120,13 @@ def build_commit_plan(
 Изменённые файлы:
 {files_text or '—'}
 
-Сгруппируй изменения в 3-8 секций и 5-40 конкретных подзадач на русском.
+Правила:
+- 1–3 секции по модулям/областям
+- 3–10 подзадач суммарно
+- Каждая подзадача — конкретное изменение из коммита (файл, функция, настройка)
+- Не добавляй общие шаги: анализ, диагностика, тестирование, документирование, аудит — если их нет в коммите
+- Не выдумывай работу, которой не было
+
 Схема ответа:
 {PLAN_SCHEMA}
 """
@@ -108,4 +139,7 @@ def build_commit_plan(
     if not parsed:
         parsed = _fallback_plan_from_files(commit_message, files)
 
-    return validate_plan(parsed)
+    plan, error = validate_plan(parsed)
+    if plan:
+        plan = _cap_plan_size(plan)
+    return plan, error

@@ -142,7 +142,7 @@ def start_github_sync(
     get_main_keyboard,
 ) -> None:
     if not can_sync_github_tasks(user):
-        send_message(chat_id, "Синхронизация GitHub доступна только администраторам.", reply_markup=get_main_keyboard(user))
+        send_message(chat_id, "Синхронизация GitHub доступна только уполномоченным пользователям.", reply_markup=get_main_keyboard(user))
         return
 
     send_message(chat_id, "⏳ Сканирую репозитории GitHub…", reply_markup=get_main_keyboard(user))

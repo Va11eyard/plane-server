@@ -10,7 +10,6 @@ from typing import Any
 from django.utils import timezone
 
 from plane.db.models import GitHubCommitImportLog, GitHubRepoSync, User
-from plane.license.models import InstanceAdmin
 from plane.utils.github_api import (
     GitHubAPIError,
     build_commit_url,
@@ -53,12 +52,20 @@ class ScanResult:
     error: str | None = None
 
 
+DEFAULT_GITHUB_SYNC_IMPORTER = "dimash@galamat.group"
+
+
+def get_github_sync_importer_emails() -> set[str]:
+    raw = os.environ.get("GITHUB_SYNC_IMPORTER_EMAILS", "").strip()
+    if not raw:
+        raw = DEFAULT_GITHUB_SYNC_IMPORTER
+    return {email.strip().lower() for email in raw.split(",") if email.strip()}
+
+
 def can_sync_github_tasks(user: User) -> bool:
-    emails_raw = os.environ.get("TELEGRAM_SYNC_ADMIN_EMAILS", "")
-    emails = {e.strip().lower() for e in emails_raw.split(",") if e.strip()}
-    if user.email and user.email.lower() in emails:
-        return True
-    return InstanceAdmin.objects.filter(user=user).exists()
+    if not user.email:
+        return False
+    return user.email.lower() in get_github_sync_importer_emails()
 
 
 def scan_repo_sync(repo_sync: GitHubRepoSync, actor: User, trigger_source: str) -> ScanResult:
@@ -148,6 +155,9 @@ def scan_all_repos(actor: User, trigger_source: str = GitHubCommitImportLog.Trig
 
 
 def execute_import_log(log_id: str, actor: User) -> tuple[bool, str]:
+    if not can_sync_github_tasks(actor):
+        return False, "Импорт GitHub-задач доступен только уполномоченным пользователям"
+
     log = GitHubCommitImportLog.objects.select_related("repo_sync", "repo_sync__project").filter(pk=log_id).first()
     if not log:
         return False, "Лог импорта не найден"

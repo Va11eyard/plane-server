@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # See the LICENSE file for details.
 
+from unittest.mock import Mock
+
 import pytest
 
 from plane.utils.github_commit_import_service import (
@@ -9,7 +11,8 @@ from plane.utils.github_commit_import_service import (
     short_sha,
     validate_plan,
 )
-from plane.utils.github_commit_plan_ai import _fallback_plan_from_files
+from plane.utils.github_commit_plan_ai import MAX_PLAN_TASKS, _cap_plan_size, _fallback_plan_from_files
+from plane.utils.github_sync_orchestrator import can_sync_github_tasks, get_github_sync_importer_emails
 from plane.utils.telegram_github_sync_bot import is_sync_trigger
 
 
@@ -57,6 +60,31 @@ class TestGitHubPlanAI:
         assert plan["epic_title"] == "feat: add views"
         assert len(plan["sections"]) >= 1
         assert any(s["title"] == "apps" for s in plan["sections"])
+
+    def test_cap_plan_size(self):
+        plan = _cap_plan_size(
+            {
+                "epic_title": "test",
+                "sections": [
+                    {"title": "A", "tasks": [f"t{i}" for i in range(8)]},
+                    {"title": "B", "tasks": [f"t{i}" for i in range(8)]},
+                ],
+            }
+        )
+        total_tasks = sum(len(s["tasks"]) for s in plan["sections"])
+        assert len(plan["sections"]) <= 3
+        assert total_tasks <= MAX_PLAN_TASKS
+
+
+@pytest.mark.unit
+class TestGitHubSyncPermissions:
+    def test_default_importer_email(self):
+        assert "dimash@galamat.group" in get_github_sync_importer_emails()
+
+    def test_can_sync_only_importer(self, monkeypatch):
+        monkeypatch.delenv("GITHUB_SYNC_IMPORTER_EMAILS", raising=False)
+        assert can_sync_github_tasks(Mock(email="dimash@galamat.group")) is True
+        assert can_sync_github_tasks(Mock(email="admin@galamat.com")) is False
 
 
 @pytest.mark.unit

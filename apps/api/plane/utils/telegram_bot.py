@@ -238,7 +238,7 @@ def show_help(chat_id: int, user=None) -> None:
     if user and can_sync_github_tasks(user):
         help_text += (
             "🔄 Обновить задачи — скан GitHub, превью и импорт задач по коммитам.\n"
-            "Доступно только администраторам.\n\n"
+            "Доступно только уполномоченным пользователям.\n\n"
         )
     help_text += "Команды: /report, /task, /sync, /menu"
     send_message(chat_id, help_text, reply_markup=get_main_keyboard(user))
