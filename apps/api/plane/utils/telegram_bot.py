@@ -11,6 +11,8 @@ from typing import Any
 import requests
 from django.core.cache import cache
 from plane.db.models import Project, UserTelegramLink, Workspace
+from plane.utils.telegram_github_sync_bot import handle_github_sync_callback, is_sync_trigger, start_github_sync
+from plane.utils.github_sync_orchestrator import can_sync_github_tasks
 from plane.utils.telegram_task_bot import handle_task_callback, handle_task_message, start_task_wizard
 
 logger = logging.getLogger("plane.telegram")
@@ -24,14 +26,17 @@ SESSION_TTL = 60 * 30
 PROJECTS_PER_PAGE = 8
 SESSION_KEY = "telegram_report_session:{chat_id}"
 
-MAIN_KEYBOARD = {
-    "keyboard": [
+def get_main_keyboard(user=None) -> dict:
+    rows: list[list[dict[str, str]]] = [
         [{"text": "📊 Новый отчёт"}, {"text": "📝 Новая задача"}],
-        [{"text": "ℹ️ Помощь"}],
-    ],
-    "resize_keyboard": True,
-    "is_persistent": True,
-}
+    ]
+    if user and can_sync_github_tasks(user):
+        rows.append([{"text": "🔄 Обновить задачи"}])
+    rows.append([{"text": "ℹ️ Помощь"}])
+    return {"keyboard": rows, "resize_keyboard": True, "is_persistent": True}
+
+
+MAIN_KEYBOARD = get_main_keyboard()
 
 TASK_TRIGGERS = {
     "/task",
@@ -212,17 +217,16 @@ def _build_confirm_keyboard() -> dict:
     }
 
 
-def show_main_menu(chat_id: int, text: str | None = None) -> None:
+def show_main_menu(chat_id: int, text: str | None = None, user=None) -> None:
     send_message(
         chat_id,
         text or "Выберите действие:",
-        reply_markup=MAIN_KEYBOARD,
+        reply_markup=get_main_keyboard(user),
     )
 
 
-def show_help(chat_id: int) -> None:
-    send_message(
-        chat_id,
+def show_help(chat_id: int, user=None) -> None:
+    help_text = (
         "📊 Новый отчёт — пошаговый мастер:\n"
         "1) выбор проектов\n"
         "2) период (день / неделя / месяц)\n"
@@ -230,9 +234,14 @@ def show_help(chat_id: int) -> None:
         "📝 Новая задача — создание задачи в Project Office:\n"
         "опишите задачу текстом (проект, исполнитель, срок).\n"
         "Бот уточнит детали и создаст задачу в Plane.\n\n"
-        "Команды: /report, /task, /menu",
-        reply_markup=MAIN_KEYBOARD,
     )
+    if user and can_sync_github_tasks(user):
+        help_text += (
+            "🔄 Обновить задачи — скан GitHub, превью и импорт задач по коммитам.\n"
+            "Доступно только администраторам.\n\n"
+        )
+    help_text += "Команды: /report, /task, /sync, /menu"
+    send_message(chat_id, help_text, reply_markup=get_main_keyboard(user))
 
 
 def start_report_wizard(chat_id: int, user) -> None:
@@ -376,6 +385,23 @@ def handle_callback(callback: dict) -> None:
 
     session = get_session(chat_id) or {}
 
+    if handle_github_sync_callback(
+        data,
+        chat_id,
+        message_id,
+        link,
+        session,
+        callback_id,
+        answer_callback=answer_callback,
+        edit_message=edit_message,
+        send_message=send_message,
+        save_session=save_session,
+        clear_session=clear_session,
+        show_main_menu=show_main_menu,
+        get_main_keyboard=get_main_keyboard,
+    ):
+        return
+
     if handle_task_callback(
         data,
         chat_id,
@@ -389,7 +415,7 @@ def handle_callback(callback: dict) -> None:
         save_session=save_session,
         clear_session=clear_session,
         show_main_menu=show_main_menu,
-        MAIN_KEYBOARD=MAIN_KEYBOARD,
+        MAIN_KEYBOARD=get_main_keyboard(link.user),
     ):
         return
 
@@ -541,13 +567,15 @@ def handle_message(message: dict) -> None:
                     chat_id,
                     f"Аккаунт привязан: {link.user.email}\n\n"
                     "📊 Новый отчёт или 📝 Новая задача в Project Office.",
+                    user=link.user,
                 )
             else:
                 send_message(chat_id, "Отправьте команду с токеном: /start <ваш_код>\nТокен создаётся в Plane.")
         return
 
     if text in ("/menu", "/help") or text.lower() == "ℹ️ помощь":
-        show_help(chat_id)
+        help_link = get_link(chat_id)
+        show_help(chat_id, user=help_link.user if help_link else None)
         return
 
     link = get_link(chat_id)
@@ -559,6 +587,17 @@ def handle_message(message: dict) -> None:
         start_report_wizard(chat_id, link.user)
         return
 
+    if is_sync_trigger(text):
+        start_github_sync(
+            chat_id,
+            link.user,
+            send_message=send_message,
+            save_session=save_session,
+            show_main_menu=show_main_menu,
+            get_main_keyboard=get_main_keyboard,
+        )
+        return
+
     if _is_task_trigger(text):
         start_task_wizard(
             chat_id,
@@ -566,7 +605,7 @@ def handle_message(message: dict) -> None:
             send_message=send_message,
             save_session=save_session,
             clear_session=clear_session,
-            MAIN_KEYBOARD=MAIN_KEYBOARD,
+            MAIN_KEYBOARD=get_main_keyboard(link.user),
         )
         return
 
@@ -581,11 +620,11 @@ def handle_message(message: dict) -> None:
         get_session=get_session,
         show_main_menu=show_main_menu,
         clear_session=clear_session,
-        MAIN_KEYBOARD=MAIN_KEYBOARD,
+        MAIN_KEYBOARD=get_main_keyboard(link.user),
     ):
         return
 
-    show_main_menu(chat_id, "Используйте «📊 Новый отчёт», «📝 Новая задача» или /help.")
+    show_main_menu(chat_id, "Используйте «📊 Новый отчёт», «📝 Новая задача» или /help.", user=link.user)
 
 
 def handle_telegram_update(update: dict) -> None:
