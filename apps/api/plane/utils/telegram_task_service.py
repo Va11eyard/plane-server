@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # See the LICENSE file for details.
 
+import json
 import os
 import re
 import unicodedata
@@ -9,8 +10,9 @@ from datetime import date, datetime, timedelta
 from typing import Any
 
 from django.conf import settings
+from django.utils import timezone
 
-from plane.db.models import Issue, IssueAssignee, Project, ProjectMember, State, Workspace, WorkspaceMember
+from plane.db.models import Issue, IssueAssignee, Project, ProjectMember, State, UserTelegramLink, Workspace, WorkspaceMember
 
 PROJECT_OFFICE_SLUG = "project-office"
 MEMBER_ROLE_MIN = 15
@@ -220,6 +222,69 @@ def _html_desc(text: str) -> str:
     return "<p>" + escaped.replace("\n", "<br/>") + "</p>"
 
 
+def get_app_origin() -> str:
+    base = (
+        os.environ.get("WEB_URL")
+        or os.environ.get("APP_BASE_URL")
+        or getattr(settings, "WEB_URL", None)
+        or getattr(settings, "APP_BASE_URL", None)
+        or ""
+    ).rstrip("/")
+    return base or "https://task.pro-ecta.kz"
+
+
+def notify_issue_created_from_telegram(
+    *,
+    issue: Issue,
+    project: Project,
+    creator,
+    title: str,
+    description: str = "",
+    assignee_id: str | None = None,
+) -> None:
+    """Trigger Plane in-app/email notifications and optional Telegram DM to assignee."""
+    from plane.bgtasks.issue_activities_task import issue_activity
+
+    assignee_ids = [str(assignee_id)] if assignee_id else []
+    requested_data = {
+        "name": title,
+        "description_html": _html_desc(description),
+        "assignee_ids": assignee_ids,
+    }
+    issue_activity.delay(
+        type="issue.activity.created",
+        requested_data=json.dumps(requested_data),
+        current_instance=None,
+        actor_id=str(creator.id),
+        issue_id=str(issue.id),
+        project_id=str(project.id),
+        epoch=int(timezone.now().timestamp()),
+        notification=True,
+        subscriber=True,
+        origin=get_app_origin(),
+    )
+
+    if not assignee_id or str(creator.id) == str(assignee_id):
+        return
+
+    link = UserTelegramLink.objects.filter(user_id=assignee_id).first()
+    if not link:
+        return
+
+    from plane.utils.telegram_bot import send_message
+
+    url = build_issue_url(project.workspace.slug, str(project.id), str(issue.id))
+    ident = project.identifier or "TASK"
+    creator_name = creator.display_name or creator.email or "Менеджер"
+    send_message(
+        link.telegram_chat_id,
+        f"📌 Вам назначена задача {ident}-{issue.sequence_id}\n"
+        f"«{title}»\n"
+        f"От: {creator_name}\n"
+        f"{url}",
+    )
+
+
 def create_issue_from_telegram(
     *,
     project: Project,
@@ -266,6 +331,15 @@ def create_issue_from_telegram(
                 workspace=project.workspace,
                 defaults={"created_by": creator, "updated_by": creator},
             )
+
+    notify_issue_created_from_telegram(
+        issue=issue,
+        project=project,
+        creator=creator,
+        title=name,
+        description=desc,
+        assignee_id=assignee_id,
+    )
 
     return issue, None
 

@@ -27,7 +27,7 @@ const PROVIDERS = [
   {
     value: "anthropic",
     label: "Anthropic",
-    placeholder: "claude-sonnet-4-5",
+    placeholder: "claude-sonnet-4-6",
     keyPlaceholder: "sk-ant-...",
   },
   { value: "gemini", label: "Google Gemini", placeholder: "gemini-2.0-flash", keyPlaceholder: "AIza..." },

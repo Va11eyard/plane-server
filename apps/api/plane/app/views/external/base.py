@@ -51,6 +51,7 @@ class OpenAIProvider(LLMProvider):
 class AnthropicProvider(LLMProvider):
     name = "Anthropic"
     models = [
+        "claude-sonnet-4-6",
         "claude-sonnet-4-5",
         "claude-sonnet-4-5-20250929",
         "claude-3-5-sonnet-20240620",
@@ -62,7 +63,7 @@ class AnthropicProvider(LLMProvider):
         "claude-instant-1.2",
         "claude-instant-1",
     ]
-    default_model = "claude-sonnet-4-5"
+    default_model = "claude-sonnet-4-6"
 
 
 class GeminiProvider(LLMProvider):
