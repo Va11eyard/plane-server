@@ -12,6 +12,7 @@ from typing import Any
 from django.conf import settings
 from django.utils import timezone
 
+from plane.bgtasks.issue_activities_task import issue_activity
 from plane.db.models import Issue, IssueAssignee, Project, ProjectMember, State, UserTelegramLink, Workspace, WorkspaceMember
 
 PROJECT_OFFICE_SLUG = "project-office"
@@ -243,15 +244,13 @@ def notify_issue_created_from_telegram(
     assignee_id: str | None = None,
 ) -> None:
     """Trigger Plane in-app/email notifications and optional Telegram DM to assignee."""
-    from plane.bgtasks.issue_activities_task import issue_activity
-
     assignee_ids = [str(assignee_id)] if assignee_id else []
     requested_data = {
         "name": title,
         "description_html": _html_desc(description),
         "assignee_ids": assignee_ids,
     }
-    issue_activity.delay(
+    issue_activity.delay(  # pyright: ignore[reportFunctionMemberAccess]
         type="issue.activity.created",
         requested_data=json.dumps(requested_data),
         current_instance=None,

@@ -51,12 +51,33 @@ def _parse_table_row(line: str) -> list[str]:
     return [_strip_inline_markdown(cell) for cell in line.strip().strip("|").split("|")]
 
 
+def _soft_wrap_long_tokens(text: str, max_len: int = 60) -> str:
+    """Break very long unbreakable tokens so fpdf can lay out Cyrillic/Latin text."""
+    parts: list[str] = []
+    for token in re.split(r"(\s+)", text):
+        if not token or token.isspace():
+            parts.append(token)
+            continue
+        if len(token) <= max_len:
+            parts.append(token)
+            continue
+        parts.append("\n".join(token[i : i + max_len] for i in range(0, len(token), max_len)))
+    return "".join(parts)
+
+
 class MarkdownPDFWriter:
     def __init__(self, pdf: ReportPDF, has_font: bool):
         self.pdf = pdf
         self.has_font = has_font
         self.body_size = 10
         self.line_height = 5.5
+
+    def _content_width(self, left_indent: float = 0) -> float:
+        width = self.pdf.w - self.pdf.l_margin - self.pdf.r_margin - left_indent
+        return max(width, 20)
+
+    def _reset_x(self, left_indent: float = 0) -> None:
+        self.pdf.set_x(self.pdf.l_margin + left_indent)
 
     def _set_font(self, style: str = "", size: int | None = None):
         size = size or self.body_size
@@ -68,17 +89,21 @@ class MarkdownPDFWriter:
                 family = "Helvetica"
             self.pdf.set_font(family, style, size)
 
-    def _write_multiline(self, text: str, size: int | None = None):
+    def _write_multiline(self, text: str, size: int | None = None, left_indent: float = 0):
         self._set_font("", size)
         self.pdf.set_text_color(0, 0, 0)
-        self.pdf.multi_cell(0, self.line_height, _strip_inline_markdown(text))
+        self._reset_x(left_indent)
+        safe_text = _soft_wrap_long_tokens(_strip_inline_markdown(text))
+        self.pdf.multi_cell(self._content_width(left_indent), self.line_height, safe_text)
 
     def write_heading(self, text: str, level: int):
         sizes = {1: 16, 2: 13, 3: 11}
         self.pdf.ln(2 if level > 1 else 4)
         self._set_font("B", sizes.get(level, 11))
         self.pdf.set_text_color(0, 0, 0)
-        self.pdf.multi_cell(0, self.line_height + 1, _strip_inline_markdown(text))
+        self._reset_x()
+        safe_text = _soft_wrap_long_tokens(_strip_inline_markdown(text))
+        self.pdf.multi_cell(self._content_width(), self.line_height + 1, safe_text)
         self.pdf.ln(1)
 
     def write_paragraph(self, text: str):
@@ -89,15 +114,16 @@ class MarkdownPDFWriter:
 
     def write_bullet(self, text: str, depth: int = 0):
         indent = 6 + depth * 4
+        bullet_w = 4
+        text_width = self._content_width(indent + bullet_w)
         self._set_font("", self.body_size)
         self.pdf.set_text_color(0, 0, 0)
-        x = self.pdf.get_x()
-        y = self.pdf.get_y()
-        self.pdf.set_x(x + indent)
-        self.pdf.cell(4, self.line_height, "•")
-        self.pdf.set_x(x + indent + 4)
-        self.pdf.multi_cell(0, self.line_height, _strip_inline_markdown(text))
+        self._reset_x(indent)
+        self.pdf.cell(bullet_w, self.line_height, "•")
+        safe_text = _soft_wrap_long_tokens(_strip_inline_markdown(text))
+        self.pdf.multi_cell(text_width, self.line_height, safe_text)
         self.pdf.ln(0.5)
+        self._reset_x()
 
     def write_hr(self):
         self.pdf.ln(3)
@@ -113,18 +139,21 @@ class MarkdownPDFWriter:
         if col_count == 0:
             return
 
-        page_width = self.pdf.w - self.pdf.l_margin - self.pdf.r_margin
-        col_width = page_width / col_count
+        page_width = self._content_width()
+        col_width = max(page_width / col_count, 18)
+        if col_width * col_count > page_width:
+            col_width = page_width / col_count
 
         self.pdf.ln(2)
+        self._reset_x()
         for row_idx, row in enumerate(rows):
-            padded = row + [""] * (col_count - len(row))
+            padded = [_soft_wrap_long_tokens(cell, max_len=40) for cell in row] + [""] * (col_count - len(row))
             is_header = row_idx == 0
             self._set_font("B" if is_header else "", 9)
             self.pdf.set_fill_color(245, 245, 245) if is_header else self.pdf.set_fill_color(255, 255, 255)
             self.pdf.set_text_color(0, 0, 0)
 
-            x_start = self.pdf.get_x()
+            x_start = self.pdf.l_margin
             y_start = self.pdf.get_y()
             max_h = self.line_height
 
@@ -137,6 +166,7 @@ class MarkdownPDFWriter:
             if y_start + max_h > self.pdf.page_break_trigger:
                 self.pdf.add_page()
                 y_start = self.pdf.get_y()
+                x_start = self.pdf.l_margin
 
             for col_idx, lines in enumerate(cell_lines):
                 x = x_start + col_idx * col_width
@@ -144,8 +174,9 @@ class MarkdownPDFWriter:
                 self.pdf.set_xy(x, y_start)
                 self.pdf.multi_cell(col_width, self.line_height, "\n".join(lines), fill=is_header)
 
-            self.pdf.set_xy(x_start, y_start + max_h)
+            self.pdf.set_xy(self.pdf.l_margin, y_start + max_h)
         self.pdf.ln(3)
+        self._reset_x()
 
     def render(self, content: str):
         lines = (content or "").split("\n")
@@ -213,7 +244,8 @@ def render_report_pdf(
             pdf.set_font("DejaVu", "B", 16)
         else:
             pdf.set_font("Helvetica", "B", 16)
-        pdf.multi_cell(0, 10, title or "Отчёт")
+        content_width = pdf.w - pdf.l_margin - pdf.r_margin
+        pdf.multi_cell(content_width, 10, title or "Отчёт")
         pdf.ln(3)
 
         meta_parts = []
@@ -227,7 +259,8 @@ def render_report_pdf(
             else:
                 pdf.set_font("Helvetica", "", 10)
             pdf.set_text_color(100, 100, 100)
-            pdf.multi_cell(0, 6, " · ".join(meta_parts))
+            pdf.set_x(pdf.l_margin)
+            pdf.multi_cell(content_width, 6, " · ".join(meta_parts))
             pdf.ln(4)
             pdf.set_text_color(0, 0, 0)
 
