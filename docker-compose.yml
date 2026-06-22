@@ -56,6 +56,9 @@ services:
       LIVE_BASE_URL: ${LIVE_BASE_URL:-http://192.168.1.132}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://192.168.1.132}
       PASSWORD_STRENGTH_MIN_SCORE: ${PASSWORD_STRENGTH_MIN_SCORE:-0}
+      SITE_AUDIT_RECIPIENT_EMAILS: dimash@galamat.com
+    volumes:
+      - ./monitoring-ssh:/root/.ssh:ro
     depends_on:
       - plane-db
       - plane-redis

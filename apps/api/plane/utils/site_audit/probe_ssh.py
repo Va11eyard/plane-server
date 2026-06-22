@@ -3,6 +3,7 @@
 # See the LICENSE file for details.
 
 import logging
+import os
 import re
 import subprocess
 import time
@@ -19,21 +20,30 @@ from plane.utils.site_audit.types import (
 logger = logging.getLogger("plane.site_audit")
 
 SSH_TIMEOUT = 20
+SSH_CONFIG_PATH = os.environ.get("SITE_AUDIT_SSH_CONFIG", "/root/.ssh/config")
+
+
+def _ssh_command(host: str, command: str) -> list[str]:
+    cmd = [
+        "ssh",
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "ConnectTimeout=20",
+        "-o",
+        "StrictHostKeyChecking=yes",
+        "-o",
+        "UserKnownHostsFile=/root/.ssh/known_hosts",
+    ]
+    if os.path.isfile(SSH_CONFIG_PATH):
+        cmd.extend(["-F", SSH_CONFIG_PATH])
+    cmd.extend([host, command])
+    return cmd
 
 
 def _run_ssh_command(host: str, command: str) -> tuple[int, str, str]:
     result = subprocess.run(
-        [
-            "ssh",
-            "-o",
-            "BatchMode=yes",
-            "-o",
-            "ConnectTimeout=20",
-            "-o",
-            "StrictHostKeyChecking=accept-new",
-            host,
-            command,
-        ],
+        _ssh_command(host, command),
         capture_output=True,
         text=True,
         timeout=SSH_TIMEOUT + 5,
