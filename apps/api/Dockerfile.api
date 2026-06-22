@@ -17,6 +17,7 @@ RUN apk add --no-cache --upgrade \
     "xmlsec" \
     "ca-certificates" \
     "openssl" \
+    "openssh-client" \
     "ttf-dejavu"
 
 COPY requirements.txt ./

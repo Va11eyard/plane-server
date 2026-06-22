@@ -75,6 +75,9 @@ services:
     environment:
       REDIS_URL: redis://plane-redis:6379/
       DATABASE_URL: postgresql://plane:plane@plane-db:5432/plane
+      SITE_AUDIT_RECIPIENT_EMAILS: dimash@galamat.com
+    volumes:
+      - ./monitoring-ssh:/root/.ssh:ro
     depends_on:
       - api
       - plane-db
@@ -95,6 +98,9 @@ services:
     environment:
       REDIS_URL: redis://plane-redis:6379/
       DATABASE_URL: postgresql://plane:plane@plane-db:5432/plane
+      SITE_AUDIT_RECIPIENT_EMAILS: dimash@galamat.com
+    volumes:
+      - ./monitoring-ssh:/root/.ssh:ro
     depends_on:
       - api
       - plane-db

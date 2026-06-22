@@ -13,6 +13,8 @@ from django.core.cache import cache
 from plane.db.models import Project, UserTelegramLink, Workspace
 from plane.utils.telegram_github_sync_bot import handle_github_sync_callback, is_sync_trigger, start_github_sync
 from plane.utils.github_sync_orchestrator import can_sync_github_tasks
+from plane.utils.site_audit.permissions import can_run_site_audit
+from plane.utils.telegram_site_audit_bot import is_audit_trigger, start_site_audit
 from plane.utils.telegram_task_bot import handle_task_callback, handle_task_message, start_task_wizard
 
 logger = logging.getLogger("plane.telegram")
@@ -32,6 +34,8 @@ def get_main_keyboard(user=None) -> dict:
     ]
     if user and can_sync_github_tasks(user):
         rows.append([{"text": "🔄 Обновить задачи"}])
+    if user and can_run_site_audit(user):
+        rows.append([{"text": "🔍 Аудит сайтов"}])
     rows.append([{"text": "ℹ️ Помощь"}])
     return {"keyboard": rows, "resize_keyboard": True, "is_persistent": True}
 
@@ -240,7 +244,12 @@ def show_help(chat_id: int, user=None) -> None:
             "🔄 Обновить задачи — скан GitHub, превью и импорт задач по коммитам.\n"
             "Доступно только уполномоченным пользователям.\n\n"
         )
-    help_text += "Команды: /report, /task, /sync, /menu"
+    if user and can_run_site_audit(user):
+        help_text += (
+            "🔍 Аудит сайтов — проверка SSL, доступности и серверов.\n"
+            "Ежедневно в 09:00 + алерты при сбоях.\n\n"
+        )
+    help_text += "Команды: /report, /task, /sync, /audit, /menu"
     send_message(chat_id, help_text, reply_markup=get_main_keyboard(user))
 
 
@@ -595,6 +604,15 @@ def handle_message(message: dict) -> None:
             send_message=send_message,
             save_session=save_session,
             show_main_menu=show_main_menu,
+            get_main_keyboard=get_main_keyboard,
+        )
+        return
+
+    if is_audit_trigger(text):
+        start_site_audit(
+            chat_id,
+            link.user,
+            send_message=send_message,
             get_main_keyboard=get_main_keyboard,
         )
         return

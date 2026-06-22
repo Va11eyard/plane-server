@@ -85,6 +85,7 @@ from .recent_visit import UserRecentVisit
 from .report import ActivityReport
 from .telegram import TelegramLinkToken, UserTelegramLink
 from .github_sync import GitHubCommitImportLog, GitHubRepoSync
+from .site_monitor import MonitorCheckResult, MonitorRun, MonitorSite
 
 from .label import Label
 

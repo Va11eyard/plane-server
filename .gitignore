@@ -26,6 +26,8 @@ build/
 *.pem
 .history
 tsconfig.tsbuildinfo
+monitoring-ssh/*
+!monitoring-ssh/README.md
 
 # Debug
 npm-debug.log*

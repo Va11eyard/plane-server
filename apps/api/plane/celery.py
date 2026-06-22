@@ -77,6 +77,14 @@ app.conf.beat_schedule = {
         "task": "plane.bgtasks.exporter_expired_task.delete_old_s3_link",
         "schedule": crontab(hour=3, minute=45),  # UTC 03:45
     },
+    "run-daily-site-audit": {
+        "task": "plane.bgtasks.site_audit_task.run_daily_site_audit",
+        "schedule": crontab(hour=4, minute=0),  # 09:00 Almaty (UTC+5)
+    },
+    "run-fast-site-probes": {
+        "task": "plane.bgtasks.site_audit_task.run_fast_site_probes",
+        "schedule": crontab(minute="*/10"),
+    },
 }
 
 
