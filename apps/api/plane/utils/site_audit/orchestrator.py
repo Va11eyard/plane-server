@@ -82,7 +82,14 @@ def _probe_site(site: MonitorSite, *, fast_only: bool) -> list[ProbeResult]:
                 if unit:
                     results.append(probe_ssh_systemd(site.ssh_host, unit))
             elif ctype == "docker":
-                results.append(probe_ssh_docker(site.ssh_host, site.ssh_project_path))
+                results.append(
+                    probe_ssh_docker(
+                        site.ssh_host,
+                        site.ssh_project_path,
+                        compose_file=str(check.get("compose_file") or ""),
+                        use_sudo=bool(check.get("use_sudo")),
+                    )
+                )
 
     return results
 

@@ -32,7 +32,7 @@ DEFAULT_SITES = [
         "sort_order": 3,
         "ssh_host": "wellmen-senai",
         "ssh_project_path": "/opt/wellmen-src",
-        "checks_json": [{"type": "docker"}],
+        "checks_json": [{"type": "docker", "use_sudo": True}],
     },
     {
         "slug": "senai",
@@ -40,7 +40,7 @@ DEFAULT_SITES = [
         "sort_order": 4,
         "ssh_host": "wellmen-senai",
         "ssh_project_path": "/opt/senai-src",
-        "checks_json": [{"type": "docker"}],
+        "checks_json": [{"type": "docker", "use_sudo": True}],
     },
     {
         "slug": "pharma",
@@ -48,7 +48,7 @@ DEFAULT_SITES = [
         "sort_order": 5,
         "ssh_host": "pharma",
         "ssh_project_path": "/opt/pharma",
-        "checks_json": [{"type": "docker"}],
+        "checks_json": [{"type": "docker", "compose_file": "docker-compose.ps-kz.yml"}],
     },
     {
         "slug": "odos",
@@ -56,15 +56,15 @@ DEFAULT_SITES = [
         "sort_order": 6,
         "ssh_host": "odos",
         "ssh_project_path": "/opt/odos-src",
-        "checks_json": [{"type": "docker"}],
+        "checks_json": [{"type": "docker", "compose_file": "docker-compose.prod.yml"}],
     },
     {
         "slug": "inlab",
         "name": "InLab",
         "sort_order": 7,
-        "ssh_host": "",
+        "ssh_host": "inlab",
         "ssh_project_path": "/opt/inlab-src",
-        "checks_json": [{"type": "docker"}],
+        "checks_json": [{"type": "docker", "compose_file": "inlab.stack.ghcr.yml"}],
     },
 ]
 

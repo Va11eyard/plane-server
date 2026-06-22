@@ -5,6 +5,7 @@
 import logging
 import os
 import re
+import shlex
 import subprocess
 import time
 
@@ -101,7 +102,13 @@ def probe_ssh_systemd(host: str, unit: str) -> ProbeResult:
         )
 
 
-def probe_ssh_docker(host: str, project_path: str) -> ProbeResult:
+def probe_ssh_docker(
+    host: str,
+    project_path: str,
+    *,
+    compose_file: str = "",
+    use_sudo: bool = False,
+) -> ProbeResult:
     start = time.monotonic()
     if not host or not project_path:
         return ProbeResult(
@@ -111,8 +118,14 @@ def probe_ssh_docker(host: str, project_path: str) -> ProbeResult:
             message="SSH host или путь не задан",
         )
     try:
-        cmd = f"cd {project_path} && docker compose ps --format '{{{{.Name}}}}\\t{{{{.State}}}}\\t{{{{.Status}}}}'"
-        code, out, err = _run_ssh_command(host, cmd)
+        docker_bin = "sudo docker" if use_sudo else "docker"
+        compose_part = f"-f {shlex.quote(compose_file)} " if compose_file else ""
+        path_q = shlex.quote(project_path)
+        ps_cmd = (
+            f"cd {path_q} && {docker_bin} compose {compose_part}"
+            f"ps --format '{{{{.Name}}}}\\t{{{{.State}}}}\\t{{{{.Status}}}}'"
+        )
+        code, out, err = _run_ssh_command(host, ps_cmd)
         duration_ms = int((time.monotonic() - start) * 1000)
         if code != 0:
             return ProbeResult(
