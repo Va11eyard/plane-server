@@ -48,7 +48,7 @@ DEFAULT_SITES = [
         "sort_order": 5,
         "ssh_host": "pharma",
         "ssh_project_path": "/opt/pharma",
-        "checks_json": [{"type": "docker", "compose_file": "docker-compose.ps-kz.yml"}],
+        "checks_json": [{"type": "docker", "compose_file": "docker-compose.ps-kz.yml", "use_sudo": True}],
     },
     {
         "slug": "odos",
@@ -64,7 +64,7 @@ DEFAULT_SITES = [
         "sort_order": 7,
         "ssh_host": "inlab",
         "ssh_project_path": "/opt/inlab-src",
-        "checks_json": [{"type": "docker", "compose_file": "inlab.stack.ghcr.yml"}],
+        "checks_json": [{"type": "docker", "compose_file": "inlab.stack.ghcr.yml", "use_sudo": True}],
     },
 ]
 
