@@ -231,7 +231,7 @@ def show_help(chat_id: int, user=None) -> None:
         "1) выбор проектов\n"
         "2) период (день / неделя / месяц)\n"
         "3) генерация PDF и отправка в чат\n\n"
-        "📝 Новая задача — создание задачи в Project Office:\n"
+        "📝 Новая задача — создание задачи в iHealth:\n"
         "опишите задачу текстом (проект, исполнитель, срок).\n"
         "Бот уточнит детали и создаст задачу в Plane.\n\n"
     )
@@ -292,7 +292,8 @@ def _start_projects_step(chat_id: int, user, workspace: Workspace) -> None:
 def _show_projects(chat_id: int, message_id: int | None = None) -> None:
     session = get_session(chat_id)
     if not session:
-        show_main_menu(chat_id)
+        link = get_link(chat_id)
+        show_main_menu(chat_id, user=link.user if link else None)
         return
     text = (
         f"📁 Проекты — {session.get('workspace_name', '')}\n\n"
@@ -425,7 +426,7 @@ def handle_callback(callback: dict) -> None:
         if code == "x":
             clear_session(chat_id)
             edit_message(chat_id, message_id, "Отменено.", {"inline_keyboard": []})
-            show_main_menu(chat_id)
+            show_main_menu(chat_id, user=link.user if link else None)
             return
         session = get_session(chat_id) or {}
         workspaces = session.get("workspaces") or []
@@ -445,7 +446,7 @@ def handle_callback(callback: dict) -> None:
         session = get_session(chat_id)
         if not session:
             answer_callback(callback_id, "Сессия истекла")
-            show_main_menu(chat_id)
+            show_main_menu(chat_id, user=link.user if link else None)
             return
 
         action = data[2:]
@@ -453,7 +454,7 @@ def handle_callback(callback: dict) -> None:
             clear_session(chat_id)
             answer_callback(callback_id)
             edit_message(chat_id, message_id, "Отменено.", {"inline_keyboard": []})
-            show_main_menu(chat_id)
+            show_main_menu(chat_id, user=link.user if link else None)
             return
         if action == "n":
             if not session.get("use_whole_workspace") and not session.get("selected_ids"):
@@ -535,7 +536,7 @@ def handle_callback(callback: dict) -> None:
             clear_session(chat_id)
             answer_callback(callback_id)
             edit_message(chat_id, message_id, "Отменено.", {"inline_keyboard": []})
-            show_main_menu(chat_id)
+            show_main_menu(chat_id, user=link.user if link else None)
             return
         if code == "b":
             session = get_session(chat_id) or {}
@@ -566,7 +567,7 @@ def handle_message(message: dict) -> None:
                 show_main_menu(
                     chat_id,
                     f"Аккаунт привязан: {link.user.email}\n\n"
-                    "📊 Новый отчёт или 📝 Новая задача в Project Office.",
+                    "📊 Новый отчёт или 📝 Новая задача в iHealth.",
                     user=link.user,
                 )
             else:

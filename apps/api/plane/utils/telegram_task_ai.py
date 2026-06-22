@@ -20,7 +20,7 @@ from plane.utils.telegram_task_service import (
 logger = logging.getLogger("plane.telegram")
 
 TASK_PARSE_INSTRUCTION = (
-    "Ты ассистент менеджера в Plane (Project Office). "
+    "Ты ассистент менеджера в Plane (iHealth). "
     "Проанализируй сообщение пользователя и помоги создать задачу. "
     "Ответь ТОЛЬКО валидным JSON без markdown."
 )

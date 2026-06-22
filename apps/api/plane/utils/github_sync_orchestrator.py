@@ -52,7 +52,7 @@ class ScanResult:
     error: str | None = None
 
 
-DEFAULT_GITHUB_SYNC_IMPORTER = "dimash@galamat.group"
+DEFAULT_GITHUB_SYNC_IMPORTER = "dimash@galamat.com"
 
 
 def get_github_sync_importer_emails() -> set[str]:

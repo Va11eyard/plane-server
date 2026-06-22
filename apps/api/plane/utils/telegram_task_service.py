@@ -15,26 +15,26 @@ from django.utils import timezone
 from plane.bgtasks.issue_activities_task import issue_activity
 from plane.db.models import Issue, IssueAssignee, Project, ProjectMember, State, UserTelegramLink, Workspace, WorkspaceMember
 
-PROJECT_OFFICE_SLUG = "project-office"
+IHEALTH_SLUG = "ihealth"
 MEMBER_ROLE_MIN = 15
 CONFIDENCE_THRESHOLD = 0.8
 
 
 def can_create_task(user) -> bool:
     return WorkspaceMember.objects.filter(
-        workspace__slug=PROJECT_OFFICE_SLUG,
+        workspace__slug=IHEALTH_SLUG,
         member=user,
         is_active=True,
         role__gte=MEMBER_ROLE_MIN,
     ).exists()
 
 
-def get_project_office_workspace() -> Workspace | None:
-    return Workspace.objects.filter(slug=PROJECT_OFFICE_SLUG).first()
+def get_ihealth_workspace() -> Workspace | None:
+    return Workspace.objects.filter(slug=IHEALTH_SLUG).first()
 
 
 def get_task_projects(user) -> list[dict[str, str]]:
-    workspace = get_project_office_workspace()
+    workspace = get_ihealth_workspace()
     if not workspace:
         return []
     projects = (

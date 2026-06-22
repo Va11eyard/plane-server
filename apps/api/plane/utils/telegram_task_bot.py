@@ -10,7 +10,7 @@ from typing import Any
 from plane.db.models import Project
 from plane.utils.telegram_task_ai import parse_task_message
 from plane.utils.telegram_task_service import (
-    PROJECT_OFFICE_SLUG,
+    IHEALTH_SLUG,
     build_issue_url,
     can_create_task,
     create_issue_from_telegram,
@@ -208,7 +208,7 @@ def start_task_wizard(chat_id: int, user, *, send_message, save_session, clear_s
     if not can_create_task(user):
         send_message(
             chat_id,
-            "Создание задач доступно участникам воркспейса Project Office.",
+            "Создание задач доступно участникам воркспейса iHealth.",
             reply_markup=MAIN_KEYBOARD,
         )
         return
@@ -217,7 +217,7 @@ def start_task_wizard(chat_id: int, user, *, send_message, save_session, clear_s
     if not projects:
         send_message(
             chat_id,
-            "У вас нет проектов в Project Office.",
+            "У вас нет проектов в iHealth.",
             reply_markup=MAIN_KEYBOARD,
         )
         return
@@ -346,7 +346,7 @@ def handle_task_callback(
         if error or not issue:
             edit_message(chat_id, message_id, f"❌ {error or 'Ошибка создания'}", {"inline_keyboard": []})
         else:
-            url = build_issue_url(PROJECT_OFFICE_SLUG, str(project.id), str(issue.id))
+            url = build_issue_url(IHEALTH_SLUG, str(project.id), str(issue.id))
             ident = project.identifier or "TASK"
             edit_message(
                 chat_id,

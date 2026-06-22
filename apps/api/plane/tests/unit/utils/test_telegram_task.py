@@ -10,7 +10,7 @@ import pytest
 from plane.db.models import Workspace, WorkspaceMember
 from plane.utils.telegram_task_ai import resolve_parsed_task
 from plane.utils.telegram_task_service import (
-    PROJECT_OFFICE_SLUG,
+    IHEALTH_SLUG,
     can_create_task,
     match_assignee,
     match_project,
@@ -131,8 +131,8 @@ class TestResolveParsedTask:
 class TestTelegramTaskPermissions:
     def test_can_create_task_member(self, create_user):
         workspace = Workspace.objects.create(
-            name="Project Office",
-            slug=PROJECT_OFFICE_SLUG,
+            name="iHealth",
+            slug=IHEALTH_SLUG,
             id=uuid4(),
             owner=create_user,
         )

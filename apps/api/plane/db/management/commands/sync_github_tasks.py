@@ -24,7 +24,7 @@ class Command(BaseCommand):
         parser.add_argument("--dry-run", action="store_true", help="Scan and show previews only")
         parser.add_argument("--yes", action="store_true", help="Import without confirmation")
         parser.add_argument("--repo", help="Owner/name e.g. Va11eyard/ODOS")
-        parser.add_argument("--actor", default="dimash@galamat.group")
+        parser.add_argument("--actor", default="dimash@galamat.com")
         parser.add_argument("--set-last-sha", help="Update last imported SHA without importing")
         parser.add_argument("--sha", help="Import specific commit SHA")
         parser.add_argument("--plan", help="Path to plan JSON file (with --sha)")

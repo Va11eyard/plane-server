@@ -79,11 +79,11 @@ class TestGitHubPlanAI:
 @pytest.mark.unit
 class TestGitHubSyncPermissions:
     def test_default_importer_email(self):
-        assert "dimash@galamat.group" in get_github_sync_importer_emails()
+        assert "dimash@galamat.com" in get_github_sync_importer_emails()
 
     def test_can_sync_only_importer(self, monkeypatch):
         monkeypatch.delenv("GITHUB_SYNC_IMPORTER_EMAILS", raising=False)
-        assert can_sync_github_tasks(Mock(email="dimash@galamat.group")) is True
+        assert can_sync_github_tasks(Mock(email="dimash@galamat.com")) is True
         assert can_sync_github_tasks(Mock(email="admin@galamat.com")) is False
 
 

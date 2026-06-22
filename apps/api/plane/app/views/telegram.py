@@ -67,7 +67,8 @@ def _link_account(chat_id: int, username: str, token_value: str) -> None:
         chat_id,
         f"✅ Аккаунт привязан к {user.email}.\n\n"
         "📊 Новый отчёт — PDF по проектам.\n"
-        "📝 Новая задача — создание задачи в Project Office.",
+        "📝 Новая задача — создание задачи в iHealth.",
+        user=user,
     )
 
 
