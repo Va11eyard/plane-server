@@ -10,6 +10,7 @@ from datetime import date, datetime, timedelta
 from typing import Any
 
 from django.conf import settings
+from django.db.models import F
 from django.utils import timezone
 
 from plane.bgtasks.issue_activities_task import issue_activity
@@ -341,6 +342,27 @@ def create_issue_from_telegram(
     )
 
     return issue, None
+
+
+def get_user_pending_issues_queryset(user, *, workspace_slug: str = IHEALTH_SLUG):
+    return (
+        Issue.issue_objects.filter(
+            workspace__slug=workspace_slug,
+            assignees__in=[user],
+            issue_assignee__deleted_at__isnull=True,
+        )
+        .exclude(state__group__in=["completed", "cancelled"])
+        .select_related("project", "state")
+        .order_by(F("target_date").asc(nulls_last=True), "-created_at")
+    )
+
+
+def get_user_pending_issues(user, *, workspace_slug: str = IHEALTH_SLUG, limit: int = 20) -> list[Issue]:
+    return list(get_user_pending_issues_queryset(user, workspace_slug=workspace_slug)[:limit])
+
+
+def count_user_pending_issues(user, *, workspace_slug: str = IHEALTH_SLUG) -> int:
+    return get_user_pending_issues_queryset(user, workspace_slug=workspace_slug).count()
 
 
 def build_issue_url(workspace_slug: str, project_id: str, issue_id: str) -> str:

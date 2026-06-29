@@ -14,6 +14,7 @@ from plane.db.models import Project, UserTelegramLink, Workspace
 from plane.utils.telegram_github_sync_bot import handle_github_sync_callback, is_sync_trigger, start_github_sync
 from plane.utils.github_sync_orchestrator import can_sync_github_tasks
 from plane.utils.site_audit.permissions import can_run_site_audit
+from plane.utils.telegram_my_tasks_bot import is_my_tasks_trigger, show_my_tasks
 from plane.utils.telegram_site_audit_bot import is_audit_trigger, start_site_audit
 from plane.utils.telegram_task_bot import handle_task_callback, handle_task_message, start_task_wizard
 
@@ -31,6 +32,7 @@ SESSION_KEY = "telegram_report_session:{chat_id}"
 def get_main_keyboard(user=None) -> dict:
     rows: list[list[dict[str, str]]] = [
         [{"text": "📊 Новый отчёт"}, {"text": "📝 Новая задача"}],
+        [{"text": "📋 Мои задачи"}],
     ]
     if user and can_sync_github_tasks(user):
         rows.append([{"text": "🔄 Обновить задачи"}])
@@ -148,6 +150,8 @@ def _is_report_trigger(text: str) -> bool:
 
 def _is_task_trigger(text: str) -> bool:
     normalized = text.strip().lower()
+    if is_my_tasks_trigger(text):
+        return False
     return normalized in TASK_TRIGGERS or normalized.startswith("/task")
 
 
@@ -238,6 +242,7 @@ def show_help(chat_id: int, user=None) -> None:
         "📝 Новая задача — создание задачи в iHealth:\n"
         "опишите задачу текстом (проект, исполнитель, срок).\n"
         "Бот уточнит детали и создаст задачу в Plane.\n\n"
+        "📋 Мои задачи — список активных задач, назначенных вам в iHealth.\n\n"
     )
     if user and can_sync_github_tasks(user):
         help_text += (
@@ -249,7 +254,7 @@ def show_help(chat_id: int, user=None) -> None:
             "🔍 Аудит сайтов — проверка SSL, доступности и серверов.\n"
             "Ежедневно в 09:00 + алерты при сбоях.\n\n"
         )
-    help_text += "Команды: /report, /task, /sync, /audit, /menu"
+    help_text += "Команды: /report, /task, /mytasks, /sync, /audit, /menu"
     send_message(chat_id, help_text, reply_markup=get_main_keyboard(user))
 
 
@@ -576,7 +581,7 @@ def handle_message(message: dict) -> None:
                 show_main_menu(
                     chat_id,
                     f"Аккаунт привязан: {link.user.email}\n\n"
-                    "📊 Новый отчёт или 📝 Новая задача в iHealth.",
+                    "📊 Новый отчёт, 📝 Новая задача или 📋 Мои задачи в iHealth.",
                     user=link.user,
                 )
             else:
@@ -628,6 +633,15 @@ def handle_message(message: dict) -> None:
         )
         return
 
+    if is_my_tasks_trigger(text):
+        show_my_tasks(
+            chat_id,
+            link.user,
+            send_message=send_message,
+            get_main_keyboard=get_main_keyboard,
+        )
+        return
+
     session = get_session(chat_id)
     if session and handle_task_message(
         chat_id,
@@ -643,7 +657,11 @@ def handle_message(message: dict) -> None:
     ):
         return
 
-    show_main_menu(chat_id, "Используйте «📊 Новый отчёт», «📝 Новая задача» или /help.", user=link.user)
+    show_main_menu(
+        chat_id,
+        "Используйте «📊 Новый отчёт», «📝 Новая задача», «📋 Мои задачи» или /help.",
+        user=link.user,
+    )
 
 
 def handle_telegram_update(update: dict) -> None:

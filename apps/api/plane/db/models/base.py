@@ -17,7 +17,7 @@ from ..mixins import AuditModel
 class BaseModel(AuditModel):
     id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, db_index=True, primary_key=True)
 
-    class Meta:
+    class Meta:  # pyright: ignore[reportIncompatibleVariableOverride]
         abstract = True
 
     def save(self, *args, created_by_id=None, disable_auto_set_user=False, **kwargs):

@@ -9,6 +9,7 @@ import pytest
 
 from plane.db.models import Workspace, WorkspaceMember
 from plane.utils.telegram_task_ai import resolve_parsed_task
+from plane.utils.telegram_my_tasks_bot import format_my_tasks_message, is_my_tasks_trigger
 from plane.utils.telegram_task_service import (
     IHEALTH_SLUG,
     can_create_task,
@@ -124,6 +125,41 @@ class TestResolveParsedTask:
         )
         assert result["status"] == "clarify"
         assert "project" in result["missing_fields"]
+
+
+@pytest.mark.unit
+class TestTelegramMyTasks:
+    def test_is_my_tasks_trigger(self):
+        assert is_my_tasks_trigger("📋 Мои задачи") is True
+        assert is_my_tasks_trigger("/mytasks") is True
+        assert is_my_tasks_trigger("новая задача") is False
+
+    def test_format_my_tasks_message_empty(self):
+        assert "нет активных" in format_my_tasks_message([])
+
+    def test_format_my_tasks_message_with_total(self):
+        class FakeProject:
+            identifier = "ODOS"
+            name = "ODOS Check UP"
+            id = "p1"
+            workspace = type("W", (), {"slug": "ihealth"})()
+
+        class FakeState:
+            name = "В работе"
+
+        class FakeIssue:
+            project = FakeProject()
+            state = FakeState()
+            sequence_id = 42
+            name = "Поправить колонку"
+            priority = "high"
+            target_date = date(2026, 6, 15)
+            id = "i1"
+
+        text = format_my_tasks_message([FakeIssue()], total_count=3)
+        assert "ODOS-42" in text
+        assert "из 3" in text
+        assert "Поправить колонку" in text
 
 
 @pytest.mark.unit
