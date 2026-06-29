@@ -5,7 +5,6 @@
  */
 
 import { observer } from "mobx-react";
-import { useParams } from "next/navigation";
 import { useTranslation } from "@plane/i18n";
 import { DocumentFileIcon } from "@plane/propel/icons";
 import { Breadcrumbs, Header } from "@plane/ui";

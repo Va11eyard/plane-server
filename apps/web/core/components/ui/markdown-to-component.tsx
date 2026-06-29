@@ -4,7 +4,8 @@
  * See the LICENSE file for details.
  */
 
-import React from "react";
+import React, { Component   } from "react";
+import type {ErrorInfo, ReactNode} from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -51,6 +52,18 @@ function HeadingSecondary({ children }: { children: React.ReactNode }) {
 
 function HeadingTertiary({ children }: { children: React.ReactNode }) {
   return <h3 className="mb-2 mt-3 text-14 font-semibold text-primary first:mt-0">{children}</h3>;
+}
+
+function HeadingQuaternary({ children }: { children: React.ReactNode }) {
+  return <h4 className="mb-2 mt-3 text-13 font-semibold text-primary first:mt-0">{children}</h4>;
+}
+
+function HeadingFifth({ children }: { children: React.ReactNode }) {
+  return <h5 className="mb-2 mt-2 text-13 font-medium text-primary first:mt-0">{children}</h5>;
+}
+
+function HeadingSixth({ children }: { children: React.ReactNode }) {
+  return <h6 className="mb-2 mt-2 text-12 font-medium text-primary first:mt-0">{children}</h6>;
 }
 
 function Paragraph({ children }: { children: React.ReactNode }) {
@@ -107,6 +120,14 @@ function Strong({ children }: { children: React.ReactNode }) {
   return <strong className="font-semibold text-primary">{children}</strong>;
 }
 
+function Emphasis({ children }: { children: React.ReactNode }) {
+  return <em className="italic text-primary">{children}</em>;
+}
+
+function TableBody({ children }: { children: React.ReactNode }) {
+  return <tbody>{children}</tbody>;
+}
+
 function OrderedList({ children }: { children: React.ReactNode }) {
   return <ol className="mb-4 ml-6 list-decimal space-y-1 text-13 text-primary">{children}</ol>;
 }
@@ -127,11 +148,14 @@ function Link({ href, children }: CustomComponentProps) {
   );
 }
 
-export function MarkdownRenderer({ markdown, className, options = {} }: Props) {
-  const customComponents = {
+function buildMarkdownComponents() {
+  return {
     h1: HeadingPrimary,
     h2: HeadingSecondary,
     h3: HeadingTertiary,
+    h4: HeadingQuaternary,
+    h5: HeadingFifth,
+    h6: HeadingSixth,
     p: Paragraph,
     ol: OrderedList,
     ul: UnorderedList,
@@ -141,19 +165,66 @@ export function MarkdownRenderer({ markdown, className, options = {} }: Props) {
     blockquote: Blockquote,
     table: Table,
     thead: TableHead,
+    tbody: TableBody,
     tr: TableRow,
     th: TableHeaderCell,
     td: TableCell,
     code: ({ inline, children }: { inline?: boolean; children: React.ReactNode }) =>
       inline ? <InlineCode>{children}</InlineCode> : <CodeBlock>{children}</CodeBlock>,
     strong: Strong,
+    em: Emphasis,
+  };
+}
+
+type MarkdownErrorBoundaryProps = {
+  fallbackText: string;
+  children: ReactNode;
+};
+
+type MarkdownErrorBoundaryState = {
+  hasError: boolean;
+};
+
+class MarkdownErrorBoundary extends Component<MarkdownErrorBoundaryProps, MarkdownErrorBoundaryState> {
+  state: MarkdownErrorBoundaryState = { hasError: false };
+
+  static getDerivedStateFromError(): MarkdownErrorBoundaryState {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("Markdown render failed", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <pre className="whitespace-pre-wrap break-words text-13 leading-relaxed text-primary">
+          {this.props.fallbackText}
+        </pre>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+export function MarkdownRenderer({ markdown, className, options = {} }: Props) {
+  const content = typeof markdown === "string" ? markdown : "";
+  const { components: optionComponents, ...restOptions } = options as {
+    components?: Props["components"];
+  };
+  const customComponents = {
+    ...buildMarkdownComponents(),
+    ...optionComponents,
   };
 
   return (
     <div className={className}>
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={customComponents} {...options}>
-        {markdown}
-      </ReactMarkdown>
+      <MarkdownErrorBoundary fallbackText={content}>
+        <ReactMarkdown remarkPlugins={[remarkGfm]} components={customComponents} {...restOptions}>
+          {content}
+        </ReactMarkdown>
+      </MarkdownErrorBoundary>
     </div>
   );
 }

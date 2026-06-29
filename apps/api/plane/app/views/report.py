@@ -445,7 +445,7 @@ def _report_response(report: ActivityReport):
     return {
         "id": str(report.id),
         "title": report.title,
-        "content": report.content,
+        "content": report.content or "",
         "period_from": report.period_from.isoformat() if report.period_from else None,
         "period_to": report.period_to.isoformat() if report.period_to else None,
         "created_at": report.created_at.isoformat() if report.created_at else None,
