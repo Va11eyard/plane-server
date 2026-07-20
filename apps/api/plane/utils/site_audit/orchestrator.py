@@ -69,6 +69,11 @@ def _probe_site(site: MonitorSite, *, fast_only: bool) -> list[ProbeResult]:
         if isinstance(check, dict) and check.get("type") == "http":
             results.append(probe_configured_http(check))
 
+    if site.slug == "odos":
+        from plane.utils.site_audit.odos_endpoints import probe_odos_deep_endpoints
+
+        results.extend(probe_odos_deep_endpoints())
+
     if not fast_only:
         results.extend(
             probe_renewal_reminder(

@@ -114,6 +114,35 @@ class TestHttpEndpointProbe:
 
 
 @pytest.mark.unit
+class TestOdosDeepProbes:
+    def test_extract_article_slug_from_list(self, monkeypatch):
+        class Resp:
+            status_code = 200
+
+            def json(self):
+                return [{"slug": "myopia"}]
+
+        monkeypatch.setattr("plane.utils.site_audit.odos_endpoints.requests.get", lambda *a, **k: Resp())
+
+        def fake_detail(*, name, url, check_key, expect_status=200):
+            from plane.utils.site_audit.types import ProbeResult, STATUS_OK
+
+            return ProbeResult(
+                check_type="http_endpoint",
+                check_key=check_key,
+                status=STATUS_OK,
+                message=f"{name}: ok",
+            )
+
+        monkeypatch.setattr("plane.utils.site_audit.odos_endpoints._http_get_probe", fake_detail)
+        from plane.utils.site_audit.odos_endpoints import probe_odos_deep_endpoints
+
+        results = probe_odos_deep_endpoints()
+        assert any("myopia" in r.message for r in results)
+        assert all(r.status == STATUS_OK for r in results)
+
+
+@pytest.mark.unit
 class TestSslProbe:
     def test_skipped_without_url(self):
         result = probe_ssl_expiry("")

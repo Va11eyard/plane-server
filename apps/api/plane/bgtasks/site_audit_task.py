@@ -65,11 +65,7 @@ def run_fast_site_probes() -> None:
 
 def run_manual_site_audit(*, telegram: bool = False, site_slug: str | None = None) -> None:
     trigger = MonitorRun.Trigger.TELEGRAM if telegram else MonitorRun.Trigger.MANUAL
-    if telegram and not site_slug:
-        site_slug = "odos"
-        label = "ODOS endpoints"
-    else:
-        label = "Telegram" if telegram else "ручной"
+    label = "Telegram" if telegram else "ручной"
     _execute_audit(
         trigger=trigger,
         fast_only=False,
