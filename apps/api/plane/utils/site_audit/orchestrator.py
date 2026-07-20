@@ -10,7 +10,7 @@ from django.core.cache import cache
 
 from plane.db.models import MonitorCheckResult, MonitorRun, MonitorSite
 from plane.utils.site_audit.permissions import probe_renewal_reminder
-from plane.utils.site_audit.probe_http import probe_health_url, probe_https_reachable
+from plane.utils.site_audit.probe_http import probe_configured_http, probe_health_url, probe_https_reachable
 from plane.utils.site_audit.probe_ssh import probe_ssh_docker, probe_ssh_systemd
 from plane.utils.site_audit.probe_ssl import probe_ssl_expiry
 from plane.utils.site_audit.report_formatter import format_alert_message, format_audit_report
@@ -65,6 +65,10 @@ def _probe_site(site: MonitorSite, *, fast_only: bool) -> list[ProbeResult]:
     if site.health_url:
         results.append(probe_health_url(site.health_url))
 
+    for check in site.checks_json or []:
+        if isinstance(check, dict) and check.get("type") == "http":
+            results.append(probe_configured_http(check))
+
     if not fast_only:
         results.extend(
             probe_renewal_reminder(
@@ -77,6 +81,8 @@ def _probe_site(site: MonitorSite, *, fast_only: bool) -> list[ProbeResult]:
             if not isinstance(check, dict):
                 continue
             ctype = check.get("type", "")
+            if ctype == "http":
+                continue
             if ctype == "systemd":
                 unit = check.get("unit", "")
                 if unit:

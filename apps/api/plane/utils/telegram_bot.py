@@ -251,7 +251,7 @@ def show_help(chat_id: int, user=None) -> None:
         )
     if user and can_run_site_audit(user):
         help_text += (
-            "🔍 Аудит сайтов — проверка SSL, доступности и серверов.\n"
+            "🔍 Аудит сайтов — проверка ODOS: endpoints, SSL, Docker.\n"
             "Ежедневно в 09:00 + алерты при сбоях.\n\n"
         )
     help_text += "Команды: /report, /task, /mytasks, /sync, /audit, /menu"

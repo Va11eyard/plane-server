@@ -5,6 +5,7 @@
 from django.core.management.base import BaseCommand
 
 from plane.db.models import MonitorSite
+from plane.utils.site_audit.odos_endpoints import ODOS_HTTP_CHECKS
 
 DEFAULT_SITES = [
     {
@@ -54,9 +55,14 @@ DEFAULT_SITES = [
         "slug": "odos",
         "name": "ODOS",
         "sort_order": 6,
+        "base_url": "https://odos.kz/ru",
+        "health_url": "https://api.odos.kz/healthz",
         "ssh_host": "odos",
         "ssh_project_path": "/opt/odos-src",
-        "checks_json": [{"type": "docker", "compose_file": "docker-compose.prod.yml"}],
+        "checks_json": [
+            {"type": "docker", "compose_file": "docker-compose.prod.yml"},
+            *ODOS_HTTP_CHECKS,
+        ],
     },
     {
         "slug": "inlab",

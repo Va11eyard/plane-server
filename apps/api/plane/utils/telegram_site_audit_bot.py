@@ -36,7 +36,7 @@ def start_site_audit(
         )
         return
 
-    send_message(chat_id, "⏳ Запускаю аудит сайтов…", reply_markup=get_main_keyboard(user))
+    send_message(chat_id, "⏳ Запускаю аудит ODOS (endpoints + infra)…", reply_markup=get_main_keyboard(user))
     threading.Thread(
         target=_run_audit_and_respond,
         kwargs={"chat_id": chat_id, "user": user, "send_message": send_message, "get_main_keyboard": get_main_keyboard},
@@ -55,7 +55,7 @@ def _run_audit_and_respond(
         from plane.bgtasks.site_audit_task import run_manual_site_audit
 
         run_manual_site_audit(telegram=True)
-        send_message(chat_id, "✅ Аудит завершён. Отчёт отправлен.", reply_markup=get_main_keyboard(user))
+        send_message(chat_id, "✅ Аудит ODOS завершён. Отчёт отправлен.", reply_markup=get_main_keyboard(user))
     except Exception:
         logger.exception("Site audit from Telegram failed")
         send_message(chat_id, "❌ Ошибка аудита сайтов.", reply_markup=get_main_keyboard(user))

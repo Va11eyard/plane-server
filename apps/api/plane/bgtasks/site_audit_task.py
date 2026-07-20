@@ -17,9 +17,22 @@ from plane.utils.site_audit.orchestrator import (
 logger = logging.getLogger("plane.site_audit")
 
 
-def _execute_audit(*, trigger: str, fast_only: bool, trigger_label: str, send_report: bool) -> None:
+def _execute_audit(
+    *,
+    trigger: str,
+    fast_only: bool,
+    trigger_label: str,
+    send_report: bool,
+    site_slug: str | None = None,
+) -> None:
     try:
-        audit = run_site_audit(trigger=trigger, fast_only=fast_only, persist=True, send_alerts=True)
+        audit = run_site_audit(
+            trigger=trigger,
+            fast_only=fast_only,
+            site_slug=site_slug,
+            persist=True,
+            send_alerts=True,
+        )
         if send_report:
             messages = build_telegram_messages(audit, trigger_label)
             send_audit_to_telegram(messages, alerts=audit.alerts if fast_only else None)
@@ -50,7 +63,17 @@ def run_fast_site_probes() -> None:
     )
 
 
-def run_manual_site_audit(*, telegram: bool = False) -> None:
+def run_manual_site_audit(*, telegram: bool = False, site_slug: str | None = None) -> None:
     trigger = MonitorRun.Trigger.TELEGRAM if telegram else MonitorRun.Trigger.MANUAL
-    label = "Telegram" if telegram else "ручной"
-    _execute_audit(trigger=trigger, fast_only=False, trigger_label=label, send_report=True)
+    if telegram and not site_slug:
+        site_slug = "odos"
+        label = "ODOS endpoints"
+    else:
+        label = "Telegram" if telegram else "ручной"
+    _execute_audit(
+        trigger=trigger,
+        fast_only=False,
+        trigger_label=label,
+        send_report=True,
+        site_slug=site_slug,
+    )

@@ -63,6 +63,57 @@ class TestReportFormatter:
 
 
 @pytest.mark.unit
+class TestHttpEndpointProbe:
+    def test_ok_status(self, monkeypatch):
+        class Resp:
+            status_code = 200
+
+            def json(self):
+                return {"status": "ok"}
+
+        monkeypatch.setattr("plane.utils.site_audit.probe_http.requests.get", lambda *a, **k: Resp())
+        from plane.utils.site_audit.probe_http import probe_configured_http
+
+        result = probe_configured_http(
+            {
+                "name": "Health",
+                "url": "https://example.com/healthz",
+                "expect_status": 200,
+                "expect_json": {"status": "ok"},
+            }
+        )
+        assert result.status == STATUS_OK
+
+    def test_wrong_status(self, monkeypatch):
+        class Resp:
+            status_code = 500
+
+            def json(self):
+                return {}
+
+        monkeypatch.setattr("plane.utils.site_audit.probe_http.requests.get", lambda *a, **k: Resp())
+        from plane.utils.site_audit.probe_http import probe_configured_http
+
+        result = probe_configured_http({"name": "API", "url": "https://example.com", "expect_status": 200})
+        assert result.status == STATUS_CRITICAL
+
+    def test_accepts_status_list(self, monkeypatch):
+        class Resp:
+            status_code = 401
+
+            def json(self):
+                return {}
+
+        monkeypatch.setattr("plane.utils.site_audit.probe_http.requests.get", lambda *a, **k: Resp())
+        from plane.utils.site_audit.probe_http import probe_configured_http
+
+        result = probe_configured_http(
+            {"name": "Auth", "url": "https://example.com/me", "expect_status": [401, 403]}
+        )
+        assert result.status == STATUS_OK
+
+
+@pytest.mark.unit
 class TestSslProbe:
     def test_skipped_without_url(self):
         result = probe_ssl_expiry("")
