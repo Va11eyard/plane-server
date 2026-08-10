@@ -5,6 +5,7 @@
 from django.core.management.base import BaseCommand
 
 from plane.db.models import MonitorSite
+from plane.utils.site_audit.galamat_endpoints import GALAMAT_HTTP_CHECKS
 from plane.utils.site_audit.inlab_endpoints import INLAB_HTTP_CHECKS
 from plane.utils.site_audit.odos_endpoints import ODOS_HTTP_CHECKS
 from plane.utils.site_audit.senai_endpoints import SENAI_HTTP_CHECKS
@@ -82,6 +83,19 @@ DEFAULT_SITES = [
         "checks_json": [
             {"type": "docker", "compose_file": "inlab.stack.ghcr.yml", "use_sudo": True},
             *INLAB_HTTP_CHECKS,
+        ],
+    },
+    {
+        "slug": "galamat",
+        "name": "Galamat",
+        "sort_order": 8,
+        "base_url": "https://galamat.pro-ecta.kz/",
+        "health_url": "",
+        "ssh_host": "proecta",
+        "ssh_project_path": "/var/www/galamat.pro-ecta.kz",
+        "checks_json": [
+            {"type": "systemd", "unit": "nginx"},
+            *GALAMAT_HTTP_CHECKS,
         ],
     },
 ]
