@@ -5,7 +5,9 @@
 from django.core.management.base import BaseCommand
 
 from plane.db.models import MonitorSite
+from plane.utils.site_audit.inlab_endpoints import INLAB_HTTP_CHECKS
 from plane.utils.site_audit.odos_endpoints import ODOS_HTTP_CHECKS
+from plane.utils.site_audit.senai_endpoints import SENAI_HTTP_CHECKS
 
 DEFAULT_SITES = [
     {
@@ -39,9 +41,14 @@ DEFAULT_SITES = [
         "slug": "senai",
         "name": "SenAI",
         "sort_order": 4,
+        "base_url": "https://sen-ai.kz/",
+        "health_url": "",
         "ssh_host": "wellmen-senai",
         "ssh_project_path": "/opt/senai-src",
-        "checks_json": [{"type": "docker", "use_sudo": True}],
+        "checks_json": [
+            {"type": "docker", "use_sudo": True},
+            *SENAI_HTTP_CHECKS,
+        ],
     },
     {
         "slug": "pharma",
@@ -68,9 +75,14 @@ DEFAULT_SITES = [
         "slug": "inlab",
         "name": "InLab",
         "sort_order": 7,
+        "base_url": "https://inlab.kz/",
+        "health_url": "https://inlab.kz/api/health",
         "ssh_host": "inlab",
         "ssh_project_path": "/opt/inlab-src",
-        "checks_json": [{"type": "docker", "compose_file": "inlab.stack.ghcr.yml", "use_sudo": True}],
+        "checks_json": [
+            {"type": "docker", "compose_file": "inlab.stack.ghcr.yml", "use_sudo": True},
+            *INLAB_HTTP_CHECKS,
+        ],
     },
 ]
 
