@@ -14,11 +14,4 @@ SENAI_HTTP_CHECKS: list[dict] = [
         "url": f"{SENAI_BASE}/",
         "expect_status": 200,
     },
-    {
-        "type": "http",
-        "key": "homepage_kk",
-        "name": "Homepage /kk",
-        "url": f"{SENAI_BASE}/kk",
-        "expect_status": [200, 301, 302, 307, 308],
-    },
 ]
