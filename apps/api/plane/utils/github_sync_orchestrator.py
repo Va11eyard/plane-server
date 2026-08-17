@@ -89,6 +89,7 @@ def scan_repo_sync(repo_sync: GitHubRepoSync, actor: User, trigger_source: str) 
 
     previews: list[CommitPreview] = []
     limit = repo_sync.max_commits_per_run or 5
+    last_sha = (repo_sync.last_imported_sha or "").strip().lower()
 
     for commit in commits:
         if len(previews) >= limit:
@@ -99,6 +100,8 @@ def scan_repo_sync(repo_sync: GitHubRepoSync, actor: User, trigger_source: str) 
         sha = summary["sha"]
         if not sha:
             continue
+        if last_sha and sha.lower() == last_sha:
+            break
         if commit_already_imported(repo_sync.project, sha):
             continue
 
