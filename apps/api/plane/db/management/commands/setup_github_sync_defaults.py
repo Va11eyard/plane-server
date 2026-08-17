@@ -58,7 +58,7 @@ class Command(BaseCommand):
                 )
             )
 
-        disabled, _ = GitHubRepoSync.objects.filter(
+        disabled = GitHubRepoSync.objects.filter(
             repo_owner="Va11eyard",
             repo_name="senai",
             enabled=True,
