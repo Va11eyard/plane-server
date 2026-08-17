@@ -11,10 +11,10 @@ DEFAULT_ASSIGNEE = "dimash@galamat.com"
 WORKSPACE_SLUG = "ihealth"
 
 REPOS = [
-    {"repo": "ODOS", "project": "ODOS Check UP"},
-    {"repo": "galamat", "project": "Galamat"},
-    {"repo": "senai", "project": "Sen AI"},
-    {"repo": "inlab", "project": "InLab"},
+    {"repo": "ODOS", "project": "ODOS Check UP", "branch": "main"},
+    {"repo": "galamat", "project": "Galamat", "branch": "master"},
+    {"repo": "SenAI", "project": "Sen AI", "branch": "main"},
+    {"repo": "inlab", "project": "InLab", "branch": "main"},
 ]
 
 
@@ -45,7 +45,7 @@ class Command(BaseCommand):
                 defaults={
                     "workspace": workspace,
                     "assignee": assignee,
-                    "default_branch": "main",
+                    "default_branch": spec.get("branch") or "main",
                     "enabled": True,
                     "use_llm": True,
                     "created_by": actor,
@@ -57,3 +57,11 @@ class Command(BaseCommand):
                     f"{verb} {sync.full_name} → {project.name} (last_sha={sync.last_imported_sha[:12] or '—'})"
                 )
             )
+
+        disabled, _ = GitHubRepoSync.objects.filter(
+            repo_owner="Va11eyard",
+            repo_name="senai",
+            enabled=True,
+        ).update(enabled=False)
+        if disabled:
+            self.stdout.write(self.style.WARNING("Disabled stale sync Va11eyard/senai"))
