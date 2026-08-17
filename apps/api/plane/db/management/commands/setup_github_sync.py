@@ -37,20 +37,23 @@ class Command(BaseCommand):
 
         actor = User.objects.filter(is_active=True).order_by("date_joined").first()
 
+        defaults = {
+            "workspace": workspace,
+            "assignee": assignee,
+            "default_branch": options["branch"],
+            "issue_state_group": options["state_group"],
+            "use_llm": not options["no_llm"],
+            "enabled": not options["disabled"],
+            "created_by": actor,
+        }
+        if options["last_sha"]:
+            defaults["last_imported_sha"] = options["last_sha"]
+
         sync, created = GitHubRepoSync.objects.update_or_create(
             repo_owner=options["owner"],
             repo_name=options["repo"],
             project=project,
-            defaults={
-                "workspace": workspace,
-                "assignee": assignee,
-                "default_branch": options["branch"],
-                "last_imported_sha": options["last_sha"] or "",
-                "issue_state_group": options["state_group"],
-                "use_llm": not options["no_llm"],
-                "enabled": not options["disabled"],
-                "created_by": actor,
-            },
+            defaults=defaults,
         )
 
         verb = "Created" if created else "Updated"

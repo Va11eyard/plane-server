@@ -47,17 +47,28 @@ def _get(url: str, params: dict | None = None) -> Any:
     return resp.json()
 
 
+def fetch_branch_commits(owner: str, repo: str, head_branch: str, *, per_page: int = 30) -> list[dict[str, Any]]:
+    """Recent commits on a branch, newest first."""
+    url = f"https://api.github.com/repos/{owner}/{repo}/commits"
+    data = _get(url, {"sha": head_branch, "per_page": per_page})
+    return data if isinstance(data, list) else []
+
+
 def fetch_compare_commits(owner: str, repo: str, base_sha: str, head_branch: str) -> list[dict[str, Any]]:
-    """Commits reachable from head but not base (oldest first in API, we return newest first)."""
+    """Commits reachable from head but not base, newest first.
+
+    Falls back to listing HEAD commits when compare fails (rewound SHA, force-push, 404).
+    """
     if not base_sha:
-        url = f"https://api.github.com/repos/{owner}/{repo}/commits"
-        data = _get(url, {"sha": head_branch, "per_page": 100})
-        if isinstance(data, list):
-            return list(reversed(data))
-        return []
+        return fetch_branch_commits(owner, repo, head_branch)
 
     url = f"https://api.github.com/repos/{owner}/{repo}/compare/{base_sha}...{head_branch}"
-    data = _get(url)
+    try:
+        data = _get(url)
+    except GitHubAPIError:
+        logger.warning("GitHub compare failed for %s/%s, falling back to HEAD list", owner, repo)
+        return fetch_branch_commits(owner, repo, head_branch)
+
     commits = data.get("commits") or []
     return list(reversed(commits))
 

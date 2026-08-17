@@ -15,6 +15,7 @@ from plane.utils.github_api import (
     build_commit_url,
     commit_summary,
     extract_commit_files,
+    fetch_branch_commits,
     fetch_commit_detail,
     fetch_compare_commits,
     is_merge_commit,
@@ -70,12 +71,19 @@ def can_sync_github_tasks(user: User) -> bool:
 
 def scan_repo_sync(repo_sync: GitHubRepoSync, actor: User, trigger_source: str) -> ScanResult:
     try:
-        commits = fetch_compare_commits(
+        commits = fetch_branch_commits(
             repo_sync.repo_owner,
             repo_sync.repo_name,
-            repo_sync.last_imported_sha,
             repo_sync.default_branch,
+            per_page=30,
         )
+        if not commits:
+            commits = fetch_compare_commits(
+                repo_sync.repo_owner,
+                repo_sync.repo_name,
+                repo_sync.last_imported_sha,
+                repo_sync.default_branch,
+            )
     except GitHubAPIError as e:
         return ScanResult(repo_sync=repo_sync, up_to_date=False, error=str(e))
 

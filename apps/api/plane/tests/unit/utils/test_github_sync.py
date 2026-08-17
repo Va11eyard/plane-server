@@ -12,6 +12,7 @@ from plane.utils.github_commit_import_service import (
     validate_plan,
 )
 from plane.utils.github_commit_plan_ai import MAX_PLAN_TASKS, _cap_plan_size, _fallback_plan_from_files
+from plane.utils.github_api import fetch_compare_commits
 from plane.utils.github_sync_orchestrator import can_sync_github_tasks, get_github_sync_importer_emails
 from plane.utils.telegram_github_sync_bot import is_sync_trigger
 
@@ -85,6 +86,62 @@ class TestGitHubSyncPermissions:
         monkeypatch.delenv("GITHUB_SYNC_IMPORTER_EMAILS", raising=False)
         assert can_sync_github_tasks(Mock(email="dimash@galamat.com")) is True
         assert can_sync_github_tasks(Mock(email="admin@galamat.com")) is False
+
+
+@pytest.mark.unit
+class TestGitHubCompareFallback:
+    def test_empty_base_lists_branch_commits(self, monkeypatch):
+        monkeypatch.setattr(
+            "plane.utils.github_api.fetch_branch_commits",
+            lambda owner, repo, branch, per_page=30: [{"sha": "head"}],
+        )
+        commits = fetch_compare_commits("o", "r", "", "main")
+        assert commits == [{"sha": "head"}]
+
+    def test_compare_error_falls_back_to_head(self, monkeypatch):
+        from plane.utils.github_api import GitHubAPIError
+
+        monkeypatch.setattr(
+            "plane.utils.github_api._get",
+            lambda *args, **kwargs: (_ for _ in ()).throw(GitHubAPIError("404")),
+        )
+        monkeypatch.setattr(
+            "plane.utils.github_api.fetch_branch_commits",
+            lambda owner, repo, branch, per_page=30: [{"sha": "fallback"}],
+        )
+        commits = fetch_compare_commits("o", "r", "oldsha", "main")
+        assert commits == [{"sha": "fallback"}]
+
+
+@pytest.mark.unit
+class TestGitHubScanUsesHead:
+    def test_scan_prefers_branch_commits(self, monkeypatch):
+        from plane.utils.github_sync_orchestrator import ScanResult, scan_repo_sync
+
+        class Repo:
+            repo_owner = "Va11eyard"
+            repo_name = "galamat"
+            default_branch = "main"
+            last_imported_sha = "old"
+            skip_merge_commits = True
+            max_commits_per_run = 5
+            project = object()
+            workspace = object()
+            assignee = None
+            full_name = "Va11eyard/galamat"
+            id = "1"
+
+        monkeypatch.setattr(
+            "plane.utils.github_sync_orchestrator.fetch_branch_commits",
+            lambda *a, **k: [],
+        )
+        monkeypatch.setattr(
+            "plane.utils.github_sync_orchestrator.fetch_compare_commits",
+            lambda *a, **k: [],
+        )
+        result = scan_repo_sync(Repo(), Mock(email="dimash@galamat.com"), "cli")
+        assert isinstance(result, ScanResult)
+        assert result.up_to_date is True
 
 
 @pytest.mark.unit

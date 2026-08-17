@@ -183,7 +183,23 @@ def import_commit_plan(
             )
             task_count += 1
 
-    repo_sync.last_imported_sha = sha
+    try:
+        from plane.utils.github_api import fetch_branch_commits
+
+        head_commits = fetch_branch_commits(
+            repo_sync.repo_owner,
+            repo_sync.repo_name,
+            repo_sync.default_branch,
+            per_page=1,
+        )
+        head_sha = (head_commits[0].get("sha") or "") if head_commits else ""
+    except Exception:
+        head_sha = ""
+
+    if head_sha:
+        repo_sync.last_imported_sha = head_sha
+    elif not repo_sync.last_imported_sha:
+        repo_sync.last_imported_sha = sha
     repo_sync.last_imported_at = timezone.now()
     repo_sync.save(update_fields=["last_imported_sha", "last_imported_at", "updated_at"])
 
