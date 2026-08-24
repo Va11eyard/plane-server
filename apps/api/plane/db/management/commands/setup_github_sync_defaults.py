@@ -15,11 +15,12 @@ REPOS = [
     {"repo": "galamat", "project": "Galamat", "branch": "master"},
     {"repo": "SenAI", "project": "Sen AI", "branch": "main"},
     {"repo": "inlab", "project": "InLab", "branch": "main"},
+    {"repo": "Wellmen", "project": "Wellmen", "branch": "main"},
 ]
 
 
 class Command(BaseCommand):
-    help = "Seed default GitHub repo syncs (ODOS, Galamat, SenAI, InLab)"
+    help = "Seed default GitHub repo syncs (ODOS, Galamat, SenAI, InLab, Wellmen)"
 
     def handle(self, *args, **options):
         workspace = Workspace.objects.filter(slug=WORKSPACE_SLUG).first()
