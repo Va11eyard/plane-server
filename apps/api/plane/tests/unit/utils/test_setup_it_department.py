@@ -27,6 +27,7 @@ PROJECT_NAMES = [
     "Sen.AI",
     "Сайты",
     "MORI",
+    "Galamat",
     "IT-отдел",
 ]
 STATUSES = {
@@ -200,3 +201,27 @@ class TestSetupItDepartment:
         Workspace.objects.create(name="Other", slug="other", owner=team[0])
         with pytest.raises(CommandError):
             call_command("setup_it_department", "--team", ",".join(u.email for u in team))
+
+    def test_galamat_existing_project_is_reused_and_configured(self, ws, team):
+        actor = team[0]
+        galamat = Project.objects.create(workspace=ws, name="Galamat", identifier="GAL", created_by=actor)
+        todo = State.objects.create(project=galamat, workspace=ws, name="Todo", group="unstarted", color="#000")
+        run(ws, team)
+        assert Project.objects.filter(workspace=ws, name="Galamat").count() == 1
+        galamat.refresh_from_db()
+        assert galamat.identifier == "GAL"
+        todo.refresh_from_db()
+        assert todo.name == "К работе"
+
+    def test_galamat_has_area_modules(self, ws, team):
+        run(ws, team)
+        galamat = Project.objects.get(workspace=ws, name="Galamat")
+        names = set(Module.objects.filter(project=galamat).values_list("name", flat=True))
+        assert {"Дизайн", "Фронтенд", "Бэкенд", "Контент", "SEO и аналитика"} <= names
+
+    def test_galamat_has_swimlane_board(self, ws, team):
+        run(ws, team)
+        galamat = Project.objects.get(workspace=ws, name="Galamat")
+        board = IssueView.objects.get(project=galamat, name="Доска по исполнителям")
+        assert board.display_filters["sub_group_by"] == "assignees"
+        assert board.display_filters["layout"] == "kanban"

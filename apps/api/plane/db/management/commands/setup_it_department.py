@@ -9,7 +9,7 @@ Idempotent setup of the IT department workflow in Plane (see the "ТЗ: наст
 * one project per product + service project "IT-отдел";
 * the same seven statuses (with the correct Plane state groups) in every project;
 * the same labels in every project;
-* a module per site in project "Сайты";
+* a module per site in project "Сайты" and per work area in "Galamat";
 * manager views (workspace level) + per-person "Мои задачи" + boards in projects;
 * a "Дейли, неделя N" page template in "IT-отдел".
 
@@ -36,6 +36,10 @@ from plane.db.models import (
     WorkspaceMember,
 )
 
+GALAMAT_PROJECT = "Galamat"
+# Work areas of the Galamat project; one module per area
+GALAMAT_MODULES = ["Дизайн", "Фронтенд", "Бэкенд", "Контент", "SEO и аналитика"]
+
 # name, identifier, aliases (old names that are renamed in place)
 PROJECTS = [
     {"name": "ODOS Game Амблиопия", "identifier": "OGA", "aliases": []},
@@ -44,6 +48,7 @@ PROJECTS = [
     {"name": "Sen.AI", "identifier": "SEN", "aliases": ["Sen AI", "SenAI"]},
     {"name": "Сайты", "identifier": "SITES", "aliases": []},
     {"name": "MORI", "identifier": "MORI", "aliases": []},
+    {"name": GALAMAT_PROJECT, "identifier": "GALAMAT", "aliases": []},
     {"name": "IT-отдел", "identifier": "ITD", "aliases": []},
 ]
 SITES_PROJECT = "Сайты"
@@ -250,6 +255,11 @@ def ensure_views(workspace, projects, states_by_project, team, actor) -> None:
         _display_filters("state", layout="kanban", sub_group_by="assignees"),
         "Доска по статусам с дорожками по исполнителям.", project=projects[SITES_PROJECT],
     )
+    upsert_view(
+        workspace, actor, "Доска по исполнителям", {},
+        _display_filters("state", layout="kanban", sub_group_by="assignees"),
+        "Доска по статусам с дорожками по исполнителям.", project=projects[GALAMAT_PROJECT],
+    )
 
 
 def daily_template_html(team) -> str:
@@ -326,6 +336,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(f"Project {project.name} ({project.identifier}) ready"))
 
         ensure_modules(workspace, projects[SITES_PROJECT], sites, actor)
+        ensure_modules(workspace, projects[GALAMAT_PROJECT], GALAMAT_MODULES, actor)
         ensure_views(workspace, projects, states_by_project, team, actor)
         ensure_daily_template(workspace, projects[IT_PROJECT], team, actor)
         self.stdout.write(self.style.SUCCESS("IT department setup complete"))
