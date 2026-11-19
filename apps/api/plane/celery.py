@@ -85,6 +85,18 @@ app.conf.beat_schedule = {
         "task": "plane.bgtasks.site_audit_task.run_fast_site_probes",
         "schedule": crontab(minute="*/10"),
     },
+    "it-morning-reminder": {
+        "task": "plane.bgtasks.it_discipline_task.send_morning_reminders",
+        "schedule": crontab(hour=4, minute=30, day_of_week="1-5"),  # 09:30 Almaty, Mon-Fri
+    },
+    "it-manager-digest": {
+        "task": "plane.bgtasks.it_discipline_task.send_manager_digest",
+        "schedule": crontab(hour=5, minute=15, day_of_week="1-5"),  # 10:15 Almaty, Mon-Fri
+    },
+    "it-evening-reminder": {
+        "task": "plane.bgtasks.it_discipline_task.send_evening_reminders",
+        "schedule": crontab(hour=13, minute=0, day_of_week="1-5"),  # 18:00 Almaty, Mon-Fri
+    },
 }
 
 
