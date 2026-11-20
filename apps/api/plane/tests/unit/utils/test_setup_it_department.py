@@ -281,3 +281,55 @@ class TestProjectGroupedViews:
         project = Project.objects.get(workspace=ws, name="Сайты")
         view = IssueView.objects.get(project=project, name="Просрочено")
         assert {"target_date__range": "2000-01-01,2030-01-01"} in view.rich_filters["and"]
+
+
+@pytest.mark.unit
+@pytest.mark.django_db
+class TestSidebarFavorites:
+    def _run(self, ws, team, follower):
+        call_command(
+            "setup_it_department",
+            "--workspace", ws.slug,
+            "--team", ",".join(u.email for u in team),
+            "--followers", follower.email,
+        )
+
+    def test_follower_gets_folder_with_entry_per_person(self, ws, team):
+        from plane.db.models import UserFavorite
+
+        boss = User.objects.create(email="boss@test.kz", first_name="Boss", username="boss")
+        WorkspaceMember.objects.create(workspace=ws, member=boss, role=20)
+        self._run(ws, team, boss)
+        folder = UserFavorite.objects.get(user=boss, workspace=ws, is_folder=True, name="IT-отдел")
+        items = UserFavorite.objects.filter(user=boss, parent=folder, entity_type="view")
+        views = IssueView.objects.filter(workspace=ws, project__isnull=True, name__startswith="Мои задачи:")
+        assert {i.entity_identifier for i in items} == {v.id for v in views}
+        assert items.count() == 3
+        assert all(i.project_id is None for i in items)
+
+    def test_each_team_member_sees_only_own_entry(self, ws, team):
+        from plane.db.models import UserFavorite
+
+        boss = User.objects.create(email="boss@test.kz", first_name="Boss", username="boss")
+        WorkspaceMember.objects.create(workspace=ws, member=boss, role=20)
+        self._run(ws, team, boss)
+        items = UserFavorite.objects.filter(user=team[1], entity_type="view")
+        assert items.count() == 1
+        assert IssueView.objects.get(id=items[0].entity_identifier).owned_by == team[1]
+
+    def test_favorites_are_idempotent(self, ws, team):
+        from plane.db.models import UserFavorite
+
+        boss = User.objects.create(email="boss@test.kz", first_name="Boss", username="boss")
+        WorkspaceMember.objects.create(workspace=ws, member=boss, role=20)
+        self._run(ws, team, boss)
+        first = UserFavorite.objects.count()
+        self._run(ws, team, boss)
+        assert UserFavorite.objects.count() == first
+
+    def test_unknown_follower_fails(self, ws, team):
+        with pytest.raises(CommandError):
+            call_command(
+                "setup_it_department", "--workspace", ws.slug,
+                "--team", ",".join(u.email for u in team), "--followers", "ghost@test.kz",
+            )

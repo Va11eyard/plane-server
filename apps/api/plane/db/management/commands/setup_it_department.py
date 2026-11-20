@@ -32,6 +32,7 @@ from plane.db.models import (
     ProjectPage,
     State,
     User,
+    UserFavorite,
     Workspace,
     WorkspaceMember,
 )
@@ -287,6 +288,46 @@ def ensure_views(workspace, projects, states_by_project, team, actor) -> None:
     )
 
 
+FAVORITES_FOLDER = "IT-отдел"
+
+
+def ensure_favorites(workspace, team, followers, actor) -> None:
+    """Sidebar (favorites) folder «IT-отдел» with an entry per person.
+
+    Followers see every person's «Мои задачи» view; each team member sees only their own.
+    """
+    views = {
+        u.id: IssueView.objects.filter(
+            workspace=workspace, project__isnull=True, name=f"Мои задачи: {_display(u)}", owned_by=u
+        ).first()
+        for u in team
+    }
+    viewers = [(f, [u for u in team if views.get(u.id)]) for f in followers]
+    viewers += [(u, [u]) for u in team if u.id not in {f.id for f in followers} and views.get(u.id)]
+    for viewer, people in viewers:
+        folder = UserFavorite.objects.filter(
+            user=viewer, workspace=workspace, is_folder=True, name=FAVORITES_FOLDER
+        ).first()
+        if not folder:
+            folder = UserFavorite.objects.create(
+                user=viewer, workspace=workspace, name=FAVORITES_FOLDER, is_folder=True,
+                entity_type="folder", created_by=actor,
+            )
+        for sequence, person in enumerate(people, start=1):
+            view = views[person.id]
+            fav = UserFavorite.objects.filter(user=viewer, workspace=workspace, entity_type="view",
+                                              entity_identifier=view.id).first()
+            if fav:
+                if fav.parent_id != folder.id:
+                    fav.parent = folder
+                    fav.save(update_fields=["parent"])
+                continue
+            UserFavorite.objects.create(
+                user=viewer, workspace=workspace, entity_type="view", entity_identifier=view.id,
+                name=view.name, parent=folder, sequence=sequence * 1000, created_by=actor,
+            )
+
+
 def daily_template_html(team) -> str:
     parts = [
         "<p>Шаблон: скопируйте страницу в «Дейли, неделя N» и замените N. "
@@ -323,6 +364,7 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--workspace", help="Workspace slug (optional when there is exactly one workspace)")
         parser.add_argument("--team", required=True, help="Comma-separated emails of the IT team (3 people)")
+        parser.add_argument("--followers", default="", help="Emails who see every person in the sidebar")
         parser.add_argument("--sites", default="InLab", help="Comma-separated site names for modules in «Сайты»")
 
     def handle(self, *args, **options):
@@ -344,6 +386,12 @@ class Command(BaseCommand):
             team.append(user)
         if not team:
             raise CommandError("--team is empty")
+        followers = []
+        for email in [e.strip() for e in options["followers"].split(",") if e.strip()]:
+            follower = User.objects.filter(email__iexact=email).first()
+            if not follower:
+                raise CommandError(f"Follower {email} not found")
+            followers.append(follower)
         sites = [s.strip() for s in options["sites"].split(",") if s.strip()]
 
         actor = team[0]
@@ -363,5 +411,6 @@ class Command(BaseCommand):
         ensure_modules(workspace, projects[SITES_PROJECT], sites, actor)
         ensure_modules(workspace, projects[GALAMAT_PROJECT], GALAMAT_MODULES, actor)
         ensure_views(workspace, projects, states_by_project, team, actor)
+        ensure_favorites(workspace, team, followers, actor)
         ensure_daily_template(workspace, projects[IT_PROJECT], team, actor)
         self.stdout.write(self.style.SUCCESS("IT department setup complete"))

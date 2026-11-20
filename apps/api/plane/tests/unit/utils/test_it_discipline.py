@@ -271,3 +271,46 @@ class TestExplicitTeam:
         sent = []
         run_reminders("digest", setup.slug, send=lambda chat, text: sent.append(chat))
         assert sent == [999]
+
+
+@pytest.mark.unit
+@pytest.mark.django_db
+class TestManagerWatch:
+    def _boss(self, ws, email, chat):
+        boss = User.objects.create(email=email, first_name="Boss", username=email.split("@")[0])
+        WorkspaceMember.objects.create(workspace=ws, member=boss, role=20)
+        UserTelegramLink.objects.create(user=boss, telegram_chat_id=chat)
+        return boss
+
+    def test_explicit_managers_replace_derived_ones(self, setup, team, monkeypatch):
+        self._boss(setup, "zhs@test.kz", 501)
+        self._boss(setup, "other@test.kz", 502)
+        monkeypatch.setenv("IT_MANAGER_EMAILS", "zhs@test.kz")
+        proj = Project.objects.get(workspace=setup, name="Сайты")
+        make_issue(setup, proj, "Блокер", team[0], timezone.localdate(), name="Ждём")
+        sent = []
+        run_reminders("digest", setup.slug, send=lambda chat, text: sent.append(chat))
+        assert sent == [501]
+
+    def test_manager_gets_one_copy_of_team_reminders(self, setup, team, monkeypatch):
+        self._boss(setup, "zhs@test.kz", 501)
+        monkeypatch.setenv("IT_MANAGER_EMAILS", "zhs@test.kz")
+        for i, u in enumerate(team):
+            UserTelegramLink.objects.create(user=u, telegram_chat_id=100 + i)
+        sent = []
+        run_reminders("morning", setup.slug, send=lambda chat, text: sent.append((chat, text)))
+        to_boss = [t for c, t in sent if c == 501]
+        assert len(to_boss) == 1
+        for u in team:
+            assert u.first_name in to_boss[0]
+
+    def test_no_copy_when_nothing_was_sent(self, setup, team, monkeypatch):
+        self._boss(setup, "zhs@test.kz", 501)
+        monkeypatch.setenv("IT_MANAGER_EMAILS", "zhs@test.kz")
+        proj = Project.objects.get(workspace=setup, name="Сайты")
+        for u in team:
+            for _ in range(3):
+                make_issue(setup, proj, "Сегодня", u, timezone.localdate())
+        sent = []
+        run_reminders("morning", setup.slug, send=lambda chat, text: sent.append(chat))
+        assert 501 not in sent

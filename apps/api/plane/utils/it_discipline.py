@@ -168,8 +168,34 @@ def get_team(workspace) -> list:
 
 
 def get_managers(workspace, team) -> list:
+    """IT_MANAGER_EMAILS (comma separated) if set, otherwise workspace admins who are not in the team."""
+    raw = os.environ.get("IT_MANAGER_EMAILS", "")
+    emails = [e.strip().lower() for e in raw.split(",") if e.strip()]
+    if emails:
+        members = WorkspaceMember.objects.filter(workspace=workspace, is_active=True).select_related("member")
+        return [m.member for m in members if m.member.email.lower() in emails]
     team_ids = {u.id for u in team}
     return [u for u in _members(workspace, MANAGER_ROLE) if u.id not in team_ids]
+
+
+def _mirror_to_managers(kind, managers, team, messages, send) -> int:
+    """One combined copy of everything sent to the team, so managers are notified about everything."""
+    blocks = [messages[u.id] for u in team if messages.get(u.id)]
+    if not blocks:
+        return 0
+    title = "утренние" if kind == "morning" else "вечерние"
+    text = f"📋 Копия: {title} напоминания команды\n\n" + "\n\n———\n\n".join(blocks)
+    sent = 0
+    for manager in managers:
+        link = UserTelegramLink.objects.filter(user=manager).first()
+        if not link:
+            continue
+        try:
+            send(link.telegram_chat_id, text[:4000])
+            sent += 1
+        except Exception:
+            logger.exception("Failed to mirror %s reminders to %s", kind, manager.email)
+    return sent
 
 
 def run_reminders(kind: str, workspace_slug: str, send: Callable[[int, str], object] | None = None) -> int:
@@ -192,6 +218,8 @@ def run_reminders(kind: str, workspace_slug: str, send: Callable[[int, str], obj
         messages = {u.id: format_user_message(u, report.users[u.id], kind) for u in team}
 
     sent = 0
+    if kind != "digest":
+        sent += _mirror_to_managers(kind, get_managers(workspace, team), team, messages, send)
     for user in recipients:
         text = messages.get(user.id)
         if not text:
