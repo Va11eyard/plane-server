@@ -85,6 +85,10 @@ app.conf.beat_schedule = {
         "task": "plane.bgtasks.site_audit_task.run_fast_site_probes",
         "schedule": crontab(minute="*/10"),
     },
+    "it-refresh-overdue-view": {
+        "task": "plane.bgtasks.it_discipline_task.refresh_overdue_view_task",
+        "schedule": crontab(hour=19, minute=5),  # 00:05 Almaty (UTC+5)
+    },
     "it-morning-reminder": {
         "task": "plane.bgtasks.it_discipline_task.send_morning_reminders",
         "schedule": crontab(hour=4, minute=30, day_of_week="1-5"),  # 09:30 Almaty, Mon-Fri

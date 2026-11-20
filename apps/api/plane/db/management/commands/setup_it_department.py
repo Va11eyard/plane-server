@@ -13,7 +13,7 @@ Idempotent setup of the IT department workflow in Plane (see the "ТЗ: наст
 * manager views (workspace level) + per-person "Мои задачи" + boards in projects;
 * a "Дейли, неделя N" page template in "IT-отдел".
 
-Re-running is safe. Re-run it daily (cron) to refresh the date-based "Просрочено" view.
+Re-running is safe. The date-based "Просрочено" view is refreshed nightly by a Celery task.
 """
 
 import html
@@ -194,12 +194,37 @@ def upsert_view(workspace, owner, name, rich_filters, display_filters, descripti
     )
 
 
+def overdue_view_content(today) -> tuple:
+    """Rich filters and description of «Просрочено»: open cards with a due date before `today`."""
+    overdue_to = (today - timedelta(days=1)).isoformat()
+    filters = {
+        "and": [
+            {"state_group__in": ACTIVE_GROUPS},
+            {"target_date__range": f"{OVERDUE_FROM},{overdue_to}"},
+        ]
+    }
+    description = (
+        f"Срок раньше {today.isoformat()}, задача не закрыта. "
+        "Диапазон обновляется ежедневно (задача Celery) или повторным запуском setup_it_department."
+    )
+    return filters, description
+
+
+def refresh_overdue_view(workspace, today=None) -> bool:
+    """Move the «Просрочено» date range to today. Returns False if the view does not exist."""
+    view = IssueView.objects.filter(workspace=workspace, project__isnull=True, name="Просрочено").first()
+    if not view:
+        return False
+    view.rich_filters, view.description = overdue_view_content(today or timezone.localdate())
+    view.save(update_fields=["rich_filters", "description"])
+    return True
+
+
 def ensure_views(workspace, projects, states_by_project, team, actor) -> None:
     def ids(*names):
         return [s.id for st in states_by_project.values() for n, s in st.items() if n in names]
 
     today = timezone.localdate()
-    overdue_to = (today - timedelta(days=1)).isoformat()
 
     upsert_view(
         workspace, actor, "Команда: сегодня",
@@ -213,18 +238,8 @@ def ensure_views(workspace, projects, states_by_project, team, actor) -> None:
         _display_filters("assignees"),
         "У кого сколько задач в работе, кто перегружен.",
     )
-    upsert_view(
-        workspace, actor, "Просрочено",
-        {
-            "and": [
-                {"state_group__in": ACTIVE_GROUPS},
-                {"target_date__range": f"{OVERDUE_FROM},{overdue_to}"},
-            ]
-        },
-        _display_filters("assignees"),
-        f"Срок раньше {today.isoformat()}, задача не закрыта. "
-        "Диапазон обновляется повторным запуском setup_it_department.",
-    )
+    overdue_filters, overdue_description = overdue_view_content(today)
+    upsert_view(workspace, actor, "Просрочено", overdue_filters, _display_filters("assignees"), overdue_description)
     upsert_view(
         workspace, actor, "Блокеры",
         {"state_id__in": _in(*ids("Блокер"))},

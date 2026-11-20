@@ -225,3 +225,23 @@ class TestSetupItDepartment:
         board = IssueView.objects.get(project=galamat, name="Доска по исполнителям")
         assert board.display_filters["sub_group_by"] == "assignees"
         assert board.display_filters["layout"] == "kanban"
+
+
+@pytest.mark.unit
+@pytest.mark.django_db
+class TestRefreshOverdueView:
+    def test_moves_range_end_to_yesterday(self, ws, team):
+        from datetime import date
+
+        from plane.db.management.commands.setup_it_department import refresh_overdue_view
+
+        run(ws, team)
+        assert refresh_overdue_view(ws, today=date(2030, 1, 2)) is True
+        view = IssueView.objects.get(workspace=ws, name="Просрочено")
+        assert {"target_date__range": "2000-01-01,2030-01-01"} in view.rich_filters["and"]
+        assert "2030-01-02" in view.description
+
+    def test_returns_false_when_view_missing(self, ws, team):
+        from plane.db.management.commands.setup_it_department import refresh_overdue_view
+
+        assert refresh_overdue_view(ws) is False

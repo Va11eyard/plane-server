@@ -221,3 +221,30 @@ class TestSchedule:
         monkeypatch.setenv("IT_WORKSPACE_SLUG", "my-ws")
         it_discipline_task.send_evening_reminders()
         assert calls == [("evening", "my-ws")]
+
+
+@pytest.mark.unit
+class TestOverdueRefreshTask:
+    def test_scheduled_nightly(self):
+        from plane.celery import app
+
+        entry = app.conf.beat_schedule["it-refresh-overdue-view"]
+        assert entry["task"] == "plane.bgtasks.it_discipline_task.refresh_overdue_view_task"
+
+    def test_task_refreshes_configured_workspace(self, monkeypatch):
+        from plane.bgtasks import it_discipline_task
+
+        calls = []
+        monkeypatch.setattr(it_discipline_task, "refresh_overdue_for_slug", lambda slug: calls.append(slug))
+        monkeypatch.setenv("IT_WORKSPACE_SLUG", "my-ws")
+        it_discipline_task.refresh_overdue_view_task()
+        assert calls == ["my-ws"]
+
+    def test_task_failure_is_logged_not_raised(self, monkeypatch):
+        from plane.bgtasks import it_discipline_task
+
+        def boom(slug):
+            raise RuntimeError("x")
+
+        monkeypatch.setattr(it_discipline_task, "refresh_overdue_for_slug", boom)
+        it_discipline_task.refresh_overdue_view_task()
