@@ -248,3 +248,26 @@ class TestOverdueRefreshTask:
 
         monkeypatch.setattr(it_discipline_task, "refresh_overdue_for_slug", boom)
         it_discipline_task.refresh_overdue_view_task()
+
+
+@pytest.mark.unit
+@pytest.mark.django_db
+class TestExplicitTeam:
+    def test_team_from_env_even_if_admins(self, setup, team, monkeypatch):
+        WorkspaceMember.objects.filter(workspace=setup, member=team[1]).update(role=20)
+        monkeypatch.setenv("IT_TEAM_EMAILS", f"{team[0].email}, {team[1].email}")
+        UserTelegramLink.objects.create(user=team[1], telegram_chat_id=222)
+        sent = []
+        run_reminders("morning", setup.slug, send=lambda chat, text: sent.append(chat))
+        assert sent == [222]
+
+    def test_team_members_are_not_managers(self, setup, team, create_user, monkeypatch):
+        WorkspaceMember.objects.filter(workspace=setup, member=team[1]).update(role=20)
+        monkeypatch.setenv("IT_TEAM_EMAILS", ",".join(u.email for u in team))
+        proj = Project.objects.get(workspace=setup, name="Сайты")
+        make_issue(setup, proj, "Блокер", team[0], timezone.localdate(), name="Ждём ассеты")
+        UserTelegramLink.objects.create(user=team[1], telegram_chat_id=222)
+        UserTelegramLink.objects.create(user=create_user, telegram_chat_id=999)
+        sent = []
+        run_reminders("digest", setup.slug, send=lambda chat, text: sent.append(chat))
+        assert sent == [999]

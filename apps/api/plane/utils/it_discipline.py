@@ -5,12 +5,14 @@
 """
 Daily-routine checks for the IT department (see setup_it_department) and Telegram reminders.
 
-Team = active workspace members with role "member" (15); managers = admins (role 20).
+Team = IT_TEAM_EMAILS if set, else workspace members with role "member" (15);
+managers = workspace admins (role 20) who are not in the team.
 Rules checked: at most 5 cards in «Сегодня», no card in «Сегодня» longer than 3 days,
 every card from «К работе» onward has an assignee and a due date, nothing overdue.
 """
 
 import logging
+import os
 from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Callable
@@ -155,6 +157,21 @@ def _members(workspace, role):
     ]
 
 
+def get_team(workspace) -> list:
+    """IT_TEAM_EMAILS (comma separated) if set, otherwise active workspace members with role "member"."""
+    raw = os.environ.get("IT_TEAM_EMAILS", "")
+    emails = [e.strip().lower() for e in raw.split(",") if e.strip()]
+    if not emails:
+        return _members(workspace, TEAM_ROLE)
+    members = WorkspaceMember.objects.filter(workspace=workspace, is_active=True).select_related("member")
+    return [m.member for m in members if m.member.email.lower() in emails]
+
+
+def get_managers(workspace, team) -> list:
+    team_ids = {u.id for u in team}
+    return [u for u in _members(workspace, MANAGER_ROLE) if u.id not in team_ids]
+
+
 def run_reminders(kind: str, workspace_slug: str, send: Callable[[int, str], object] | None = None) -> int:
     """kind: morning | evening (to the team) or digest (to managers). Returns messages sent."""
     from plane.db.models import Workspace
@@ -163,11 +180,11 @@ def run_reminders(kind: str, workspace_slug: str, send: Callable[[int, str], obj
         from plane.utils.telegram_bot import send_message as send
 
     workspace = Workspace.objects.get(slug=workspace_slug)
-    team = _members(workspace, TEAM_ROLE)
+    team = get_team(workspace)
     report = analyze(workspace, team)
 
     if kind == "digest":
-        recipients = _members(workspace, MANAGER_ROLE)
+        recipients = get_managers(workspace, team)
         text = format_manager_digest(report)
         messages = {u.id: text for u in recipients} if text else {}
     else:
