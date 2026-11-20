@@ -245,7 +245,7 @@ def ensure_views(workspace, projects, states_by_project, team, actor) -> None:
 
     for name, filters, description in manager_views(all_ids, today):
         upsert_view(
-            workspace, actor, name, filters, _display_filters(None, layout="spreadsheet"),
+            workspace, actor, name, filters, _display_filters(None, layout="spreadsheet", order_by="-created_at"),
             description + " Все проекты, таблицей. Группировка по людям: те же представления внутри проекта.",
         )
 
@@ -267,7 +267,7 @@ def ensure_views(workspace, projects, states_by_project, team, actor) -> None:
         upsert_view(
             workspace, user, f"Мои задачи: {_display(user)}",
             {"and": [{"assignee_id__in": str(user.id)}, {"state_group__in": ACTIVE_GROUPS}]},
-            _display_filters("state"),
+            _display_filters(None, layout="spreadsheet", order_by="-created_at"),
             "Рабочее место сотрудника утром и вечером.",
         )
 

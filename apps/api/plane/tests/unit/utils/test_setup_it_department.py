@@ -333,3 +333,17 @@ class TestSidebarFavorites:
                 "setup_it_department", "--workspace", ws.slug,
                 "--team", ",".join(u.email for u in team), "--followers", "ghost@test.kz",
             )
+
+
+@pytest.mark.unit
+@pytest.mark.django_db
+class TestWorkspaceViewsRender:
+    def test_every_workspace_view_is_a_spreadsheet(self, ws, team):
+        # Plane only renders the spreadsheet layout for workspace-level views; anything else is blank.
+        run(ws, team)
+        views = IssueView.objects.filter(workspace=ws, project__isnull=True)
+        assert views.count() >= 8
+        for view in views:
+            assert view.display_filters["layout"] == "spreadsheet", view.name
+            assert view.display_filters["group_by"] is None, view.name
+            assert view.display_filters["order_by"] == "-created_at", view.name
