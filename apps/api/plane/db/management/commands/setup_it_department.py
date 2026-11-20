@@ -211,47 +211,57 @@ def overdue_view_content(today) -> tuple:
 
 
 def refresh_overdue_view(workspace, today=None) -> bool:
-    """Move the «Просрочено» date range to today. Returns False if the view does not exist."""
-    view = IssueView.objects.filter(workspace=workspace, project__isnull=True, name="Просрочено").first()
-    if not view:
-        return False
-    view.rich_filters, view.description = overdue_view_content(today or timezone.localdate())
-    view.save(update_fields=["rich_filters", "description"])
-    return True
+    """Move the date range of every «Просрочено» view (workspace and project level) to today."""
+    views = list(IssueView.objects.filter(workspace=workspace, name="Просрочено"))
+    for view in views:
+        view.rich_filters, view.description = overdue_view_content(today or timezone.localdate())
+        view.save(update_fields=["rich_filters", "description"])
+    return bool(views)
+
+
+def manager_views(state_ids, today) -> list:
+    """(name, rich_filters, description) of the manager views for the given state ids."""
+    overdue_filters, overdue_description = overdue_view_content(today)
+    working = state_ids("К работе", "Сегодня", "Блокер", "На проверке")
+    return [
+        ("Команда: сегодня", {"state_id__in": _in(*state_ids("Сегодня", "Блокер"))},
+         "Кто чем занят прямо сейчас (Сегодня + Блокер)."),
+        ("Загрузка", {"state_id__in": _in(*working)}, "У кого сколько задач в работе, кто перегружен."),
+        ("Просрочено", overdue_filters, overdue_description),
+        ("Блокеры", {"state_id__in": _in(*state_ids("Блокер"))}, "Где нужна помощь руководителя."),
+        ("Без исполнителя или срока", {"state_id__in": _in(*working)},
+         "Что почистить: группа «None» = задача без исполнителя; задачи без срока идут в конце списка."),
+    ]
 
 
 def ensure_views(workspace, projects, states_by_project, team, actor) -> None:
-    def ids(*names):
-        return [s.id for st in states_by_project.values() for n, s in st.items() if n in names]
-
     today = timezone.localdate()
 
-    upsert_view(
-        workspace, actor, "Команда: сегодня",
-        {"state_id__in": _in(*ids("Сегодня", "Блокер"))},
-        _display_filters("assignees"),
-        "Кто чем занят прямо сейчас (Сегодня + Блокер).",
-    )
-    upsert_view(
-        workspace, actor, "Загрузка",
-        {"state_id__in": _in(*ids("К работе", "Сегодня", "Блокер", "На проверке"))},
-        _display_filters("assignees"),
-        "У кого сколько задач в работе, кто перегружен.",
-    )
-    overdue_filters, overdue_description = overdue_view_content(today)
-    upsert_view(workspace, actor, "Просрочено", overdue_filters, _display_filters("assignees"), overdue_description)
-    upsert_view(
-        workspace, actor, "Блокеры",
-        {"state_id__in": _in(*ids("Блокер"))},
-        _display_filters("project"),
-        "Где нужна помощь руководителя.",
-    )
-    upsert_view(
-        workspace, actor, "Без исполнителя или срока",
-        {"state_id__in": _in(*ids("К работе", "Сегодня", "Блокер", "На проверке"))},
-        _display_filters("assignees", order_by="target_date"),
-        "Что почистить: группа «None» = задача без исполнителя; без срока задачи идут в конце списка по сроку.",
-    )
+    # Workspace-level views: Plane cannot group them, they open as one flat spreadsheet
+    # (Assignee column) across all projects.
+    def all_ids(*names):
+        return [s.id for st in states_by_project.values() for n, s in st.items() if n in names]
+
+    for name, filters, description in manager_views(all_ids, today):
+        upsert_view(
+            workspace, actor, name, filters, _display_filters(None, layout="spreadsheet"),
+            description + " Все проекты, таблицей. Группировка по людям: те же представления внутри проекта.",
+        )
+
+    # The same views inside every project, where grouping by assignee is available.
+    for spec in PROJECTS:
+        project = projects[spec["name"]]
+        states = states_by_project[spec["name"]]
+
+        def own_ids(*names, states=states):
+            return [states[n].id for n in names]
+
+        for name, filters, description in manager_views(own_ids, today):
+            upsert_view(
+                workspace, actor, name, filters, _display_filters("assignees", order_by="target_date"),
+                description, project=project,
+            )
+
     for user in team:
         upsert_view(
             workspace, user, f"Мои задачи: {_display(user)}",

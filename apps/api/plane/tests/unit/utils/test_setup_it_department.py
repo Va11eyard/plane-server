@@ -140,12 +140,14 @@ class TestSetupItDepartment:
         )
         ids = set(view.rich_filters["state_id__in"].split(","))
         assert ids == wanted
-        assert view.display_filters["group_by"] == "assignees"
+        # Plane cannot group workspace-level views: they are flat spreadsheets (grouping lives in project views)
+        assert view.display_filters["layout"] == "spreadsheet"
+        assert view.display_filters["group_by"] is None
 
-    def test_blockers_view_groups_by_project(self, ws, team):
+    def test_blockers_workspace_view_is_spreadsheet(self, ws, team):
         run(ws, team)
         view = IssueView.objects.get(workspace=ws, project__isnull=True, name="Блокеры")
-        assert view.display_filters["group_by"] == "project"
+        assert view.display_filters["layout"] == "spreadsheet"
 
     def test_board_views_in_projects(self, ws, team):
         run(ws, team)
@@ -185,9 +187,9 @@ class TestSetupItDepartment:
 
     def test_overdue_view_is_refreshed_on_rerun(self, ws, team):
         run(ws, team)
-        IssueView.objects.filter(name="Просрочено").update(rich_filters={})
+        IssueView.objects.filter(name="Просрочено", project__isnull=True).update(rich_filters={})
         run(ws, team)
-        assert IssueView.objects.get(name="Просрочено").rich_filters
+        assert IssueView.objects.get(name="Просрочено", project__isnull=True).rich_filters
 
     def test_unknown_team_email_fails(self, ws, team):
         with pytest.raises(CommandError):
@@ -237,7 +239,7 @@ class TestRefreshOverdueView:
 
         run(ws, team)
         assert refresh_overdue_view(ws, today=date(2030, 1, 2)) is True
-        view = IssueView.objects.get(workspace=ws, name="Просрочено")
+        view = IssueView.objects.get(workspace=ws, name="Просрочено", project__isnull=True)
         assert {"target_date__range": "2000-01-01,2030-01-01"} in view.rich_filters["and"]
         assert "2030-01-02" in view.description
 
@@ -245,3 +247,37 @@ class TestRefreshOverdueView:
         from plane.db.management.commands.setup_it_department import refresh_overdue_view
 
         assert refresh_overdue_view(ws) is False
+
+
+GROUPED = ["Команда: сегодня", "Загрузка", "Просрочено", "Блокеры", "Без исполнителя или срока"]
+
+
+@pytest.mark.unit
+@pytest.mark.django_db
+class TestProjectGroupedViews:
+    def test_every_it_project_has_views_grouped_by_assignee(self, ws, team):
+        run(ws, team)
+        for project in Project.objects.filter(workspace=ws, name__in=PROJECT_NAMES):
+            for name in GROUPED:
+                view = IssueView.objects.get(project=project, name=name)
+                assert view.display_filters["group_by"] == "assignees", (project.name, name)
+                assert view.display_filters["layout"] == "list", (project.name, name)
+
+    def test_project_view_uses_only_its_own_state_ids(self, ws, team):
+        run(ws, team)
+        project = Project.objects.get(workspace=ws, name="Сайты")
+        view = IssueView.objects.get(project=project, name="Команда: сегодня")
+        qs = State.objects.filter(project=project, name__in=["Сегодня", "Блокер"])
+        own = {str(i) for i in qs.values_list("id", flat=True)}
+        assert set(view.rich_filters["state_id__in"].split(",")) == own
+
+    def test_refresh_updates_project_overdue_views_too(self, ws, team):
+        from datetime import date
+
+        from plane.db.management.commands.setup_it_department import refresh_overdue_view
+
+        run(ws, team)
+        refresh_overdue_view(ws, today=date(2030, 1, 2))
+        project = Project.objects.get(workspace=ws, name="Сайты")
+        view = IssueView.objects.get(project=project, name="Просрочено")
+        assert {"target_date__range": "2000-01-01,2030-01-01"} in view.rich_filters["and"]
